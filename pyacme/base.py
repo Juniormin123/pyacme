@@ -84,9 +84,9 @@ class _ACMERespObject:
     """represent an object returned by an acme server"""
     
     def __init__(self, resp: requests.Response):
-        self._raw_header = dict(resp.headers)
         # should not be empty
         self._raw_resp_body = json.loads(resp.text)
+        self._resp = resp
         self._update_attr(resp)
         # set values for server specified fields that are not in rfc
         self.__dict__.update(self._raw_resp_body)
