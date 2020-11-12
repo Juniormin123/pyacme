@@ -87,14 +87,18 @@ class _JWSBase:
         protected_json = json.dumps(self.protected)
         protected_b64 = base64.urlsafe_b64encode(
             bytes(protected_json, encoding='utf-8')).strip(b'=')
-        if self.payload or self.payload == {}:
+        # base64.urlsafe_b64encode(b'""').strip(b'=') -> b'IiI'
+        payload_b64 = b'IiI'
+        if isinstance(self.payload, (dict, list)):
+            # dict or list like payload
             payload_json = json.dumps(self.payload)
             payload_b64 = base64.urlsafe_b64encode(
                 bytes(payload_json, encoding='utf-8')).strip(b'=')
-        else:
-            # non json payload, set to empty string
+        elif isinstance(self.payload, str) and bool(self.payload):
+            # non-empty string payload
             # see https://tools.ietf.org/html/rfc8555#section-6.3
-            payload_b64 = b'""'
+            payload_b64 = base64.urlsafe_b64encode(
+                bytes(self.payload, encoding='utf-8')).strip(b'=')
 
         self.sign_input = protected_b64 + b'.' + payload_b64
 
@@ -104,7 +108,7 @@ class _JWSBase:
         return self.sign_input
     
     def sign(self) -> None:
-        # update signature to self.post_body
+        # update signature to self.post_body, str type signature generated
         raise NotImplementedError
 
 
