@@ -45,31 +45,59 @@ class _JWKBase:
 
 class _JWSBase:
     
-    def __init__(self, alg: str, url: str, nonce: str, 
-                 jwk: _JWKBase, payload: Dict[str, Any]):
+    def __init__(self, 
+                 alg: str, 
+                 url: str, 
+                 nonce: str, 
+                 payload: Union[Dict[str, Any], str],
+                 jwk: _JWKBase,  
+                 kid: str = ''):
         self.alg = alg
+
+        # jwk and kid are exclusive, one of them must be provided
+        # see https://tools.ietf.org/html/rfc8555#section-6.2, page 12
+
+        # always provide a `jwk` for now, for storing private key; if `kid` is
+        # presented, use `kid` for protected header
         self.jwk = jwk
-        self.url = url
-        self.nonce = nonce
-        self.payload = payload
-        self.protected = {
+        self.kid = kid
+
+        self.protected: Dict[str, Any] = {
             'url': url,
             'nonce': nonce,
             'alg': alg,
-            'jwk': jwk._container
         }
+        if kid:
+            self.protected['kid'] = kid
+        else:
+            self.protected['jwk'] = jwk._container
+
+        self.url = url
+        self.nonce = nonce
+        # paylaod may be empty `dict()` or empty string `""`
+        # see https://tools.ietf.org/html/rfc8555#section-7.5.1 for empty {}
+        self.payload = payload
         self.signature = ''
         self.post_body: Dict[str, str] = dict()
     
     def get_sign_input(self) -> bytes:
+        """
+        see https://tools.ietf.org/html/rfc7515#section-2 Signing Input
+        """
         protected_json = json.dumps(self.protected)
         protected_b64 = base64.urlsafe_b64encode(
             bytes(protected_json, encoding='utf-8')).strip(b'=')
-        payload_json = json.dumps(self.payload)
-        payload_b64 = base64.urlsafe_b64encode(
-            bytes(payload_json, encoding='utf-8')).strip(b'=')
-        # https://tools.ietf.org/html/rfc7515#section-2 Signing Input
+        if self.payload or self.payload == {}:
+            payload_json = json.dumps(self.payload)
+            payload_b64 = base64.urlsafe_b64encode(
+                bytes(payload_json, encoding='utf-8')).strip(b'=')
+        else:
+            # non json payload, set to empty string
+            # see https://tools.ietf.org/html/rfc8555#section-6.3
+            payload_b64 = b'""'
+
         self.sign_input = protected_b64 + b'.' + payload_b64
+
         # TODO proper behaviour when payload is empty
         self.post_body['protected'] = str(protected_b64, encoding='utf-8')
         self.post_body['payload'] = str(payload_b64, encoding='utf-8')
@@ -91,7 +119,7 @@ class _ACMERespObject:
         # set values for server specified fields that are not in rfc
         self.__dict__.update(self._raw_resp_body)
     
-    def _update_attr(self, *args, **kwargs) -> None:
+    def _update_attr(self, resp: requests.Response, *args, **kwargs) -> None:
         raise NotImplementedError
     
     def __str__(self):
