@@ -103,3 +103,20 @@ class ACMERequestActions:
             headers=headers
         )
         return resp
+    
+    def key_change(self, jws: _JWSBase,
+                   headers: Dict[str, Any] = dict()) -> requests.Response:
+        """
+        key rollover request, expect 200-OK on successful change; if new key
+        already existed in server with another account, 409-Conflict will 
+        return.
+        
+        see https://tools.ietf.org/html/rfc8555#section-7.3.5 page 43
+        """
+        resp = self._request(
+            url=self.acme_dir['keyChange'],
+            method='post',
+            jws=jws,
+            headers=headers
+        )
+        return resp
