@@ -62,6 +62,18 @@ class ACMERequestActions:
     # TODO exception handle according to
     # https://tools.ietf.org/html/rfc8555#section-6.7
         
+    def _request(self, url: str, method: str, jws: _JWSBase, 
+                 headers: Dict[str, Any] = dict()) -> requests.Response:
+        """send request to arbitrary url with signed jws"""
+        headers.update(self.common_header)
+        resp = getattr(requests, method.lower())(
+            url=url,
+            data=json.dumps(jws.post_body),
+            headers=headers
+        )
+        self.nonce.update_from_resp(resp)
+        return resp
+
     def new_nonce(self, headers: Dict[str, Any] = dict()) -> None:
         """get new nonce explicitly, use HEAD method, expect 200"""
         # no special headers needed
@@ -77,11 +89,17 @@ class ACMERequestActions:
         
         see https://tools.ietf.org/html/rfc8555#section-7.3
         """
-        headers.update(self.common_header)
-        resp = requests.post(
-            url=self.acme_dir['newAccount'], 
-            data=json.dumps(jws.post_body),
+        # headers.update(self.common_header)
+        # resp = requests.post(
+        #     url=self.acme_dir['newAccount'], 
+        #     data=json.dumps(jws.post_body),
+        #     headers=headers
+        # )
+        # self.nonce.update_from_resp(resp)
+        resp = self._request(
+            url=self.acme_dir['newAccount'],
+            method='post',
+            jws=jws,
             headers=headers
         )
-        self.nonce.update_from_resp(resp)
         return resp
