@@ -23,7 +23,12 @@ class ACMEAccount(_ACMERespObject):
         for attr in attrs:
             if not (attr[0] in self._raw_resp_body):
                 setattr(self, attr[0], attr[1])
+
+        self.acct_location = ''
         self._get_location(resp)
 
     def _get_location(self, resp: requests.Response):
-        self.acct_location = resp.headers['Location']
+        if 'Location' in resp.headers:
+            # sometimes server resp header may not include `"Location"` header,
+            # when making account update request
+            self.acct_location = resp.headers['Location']
