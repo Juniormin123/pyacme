@@ -8,7 +8,13 @@ class JWKRSA(_JWKBase):
     kty = 'RSA'
     
     def __init__(self, priv_key: rsa.PrivateKey, **kwargs):
-        """private key is need for RSA JWK to generate signature"""
+        """
+        private key is need for RSA JWK to generate signature.
+        
+        following keyword param must be supplied:
+         * n: int
+         * e: int
+        """
         self.n: int
         self.e: int
         self.priv_key = priv_key
