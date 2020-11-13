@@ -1,3 +1,4 @@
+# type: ignore[override]
 from os import kill
 from typing import Dict, Any, List, Type, TypeVar
 import base64
@@ -136,6 +137,30 @@ class ACMEAccountActions:
         )    # type: ignore
         outer_jws.sign()
         return ACMEAccount(self.req_action.key_change(outer_jws))
+    
+    def deactivate_acct(self, 
+                        acct_obj: ACMEAccount, 
+                        jwk: _JWKBase,
+                        jws_type: TJWS) -> ACMEAccount:
+        """
+        deactivate an account, issued certificate will not be revoked.
+        
+        see https://tools.ietf.org/html/rfc8555#section-7.3.6
+        """
+        jws = jws_type(
+            url=acct_obj.acct_location,
+            nonce=str(self.req_action.nonce),
+            payload={'status': 'deactivated'},
+            jwk=jwk,
+            kid=acct_obj.acct_location
+        )    # type: ignore
+        jws.sign()
+        resp = self.req_action._request(
+            url=acct_obj.acct_location,
+            method='post',
+            jws=jws
+        )
+        return ACMEAccount(resp)
 
 
 class RS256AccountActions(ACMEAccountActions):
@@ -153,3 +178,7 @@ class RS256AccountActions(ACMEAccountActions):
     def acct_key_rollover(self, acct_obj: ACMEAccount, jwk_new: _JWKBase, 
                           jwk_old: _JWKBase) -> ACMEAccount:
         return super().acct_key_rollover(acct_obj, jwk_new, jwk_old, JWSRS256)
+    
+    def deactivate_acct(self, acct_obj: ACMEAccount, 
+                        jwk: _JWKBase) -> ACMEAccount:
+        return super().deactivate_acct(acct_obj, jwk, JWSRS256)
