@@ -1,7 +1,9 @@
 from typing import Any, Dict, Optional
 import base64
 
-import rsa
+# import rsa
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
 
 from pyacme.base import _JWSBase
 from pyacme.jwk import JWKRSA
@@ -30,7 +32,12 @@ class JWSRS256(_JWSBase):
     def sign(self) -> None:
         self.jwk: JWKRSA
         sign_input = self.get_sign_input()
-        sig = rsa.sign(sign_input, self.jwk.priv_key, self.hash_method)
+        # sig = rsa.sign(sign_input, self.jwk.priv_key, self.hash_method)
+        sig = self.jwk.priv_key.sign(
+            data=sign_input,
+            padding=padding.PKCS1v15(),
+            algorithm=hashes.SHA256()
+        )
         self.signature = str(
             base64.urlsafe_b64encode(sig).strip(b'='), encoding='utf-8'
         )

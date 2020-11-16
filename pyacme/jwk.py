@@ -1,4 +1,5 @@
-import rsa
+# import rsa
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 from pyacme.base import _JWKBase
 
@@ -7,7 +8,7 @@ class JWKRSA(_JWKBase):
     
     kty = 'RSA'
     
-    def __init__(self, priv_key: rsa.PrivateKey, **kwargs):
+    def __init__(self, priv_key: rsa.RSAPrivateKey, **kwargs):
         """
         private key is need for RSA JWK to generate signature.
         
