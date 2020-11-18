@@ -2,6 +2,14 @@ import requests
 
 from pyacme.base import _ACMERespObject
 
+
+class Empty(_ACMERespObject):
+    """represent an empty acme response object"""
+
+    def _update_attr(self, resp: requests.Response, *args, **kwargs) -> None:
+        pass
+
+
 class ACMEAccount(_ACMERespObject):
     """
     An acme account resource, attr `acct_location` is added in addition to
@@ -32,3 +40,4 @@ class ACMEAccount(_ACMERespObject):
             # sometimes server resp header may not include `"Location"` header,
             # when making account update request
             self.acct_location = resp.headers['Location']
+
