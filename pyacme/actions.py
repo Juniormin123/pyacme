@@ -1,11 +1,13 @@
 # type: ignore[override]
+from email.message import EmailMessage
 from os import kill
-from typing import Dict, Any, List, Type, TypeVar
+from typing import Dict, Any, List, Type, TypeVar, Union
 import base64
 import json
 
-from pyacme.ACMEobj import ACMEAccount
+from pyacme.ACMEobj import ACMEAccount, Empty
 from pyacme.requests import ACMERequestActions, Nonce
+from pyacme.exceptions import ACMEError
 from pyacme.base import _JWSBase, _JWKBase
 from pyacme.jws import JWSRS256
 from pyacme.jwk import JWKRSA
@@ -42,6 +44,8 @@ class ACMEAccountActions:
         )    # type: ignore
         jws.sign()
         resp = self.req_action.new_account(jws)
+        if resp.status_code >= 400:
+            raise(ACMEError(resp))
         return ACMEAccount(resp)
     
     def query_acct(self, jwk: _JWKBase, jws_type: TJWS) -> ACMEAccount:
@@ -61,6 +65,8 @@ class ACMEAccountActions:
         )    # type: ignore
         jws.sign()
         resp = self.req_action.new_account(jws)
+        if resp.status_code >= 400:
+            raise(ACMEError(resp))
         return ACMEAccount(resp)
     
     def update_acct(self, 
@@ -88,6 +94,8 @@ class ACMEAccountActions:
             method='post',
             jws=jws
         )
+        if resp.status_code >= 400:
+            raise(ACMEError(resp))
         return ACMEAccount(resp)
     
     def external_acct_binding(self):
@@ -100,7 +108,7 @@ class ACMEAccountActions:
                           acct_obj: ACMEAccount,
                           jwk_new: _JWKBase,
                           jwk_old: _JWKBase,
-                          jws_type: TJWS) -> ACMEAccount:
+                          jws_type: TJWS) -> Union[ACMEAccount, Empty]:
         """
         change the public key that is associtated with an account, both new and
         old key should be provided as `jwk` instance.
@@ -136,7 +144,13 @@ class ACMEAccountActions:
             kid=acct_obj.acct_location
         )    # type: ignore
         outer_jws.sign()
-        return ACMEAccount(self.req_action.key_change(outer_jws))
+        resp = self.req_action.key_change(outer_jws)
+        if resp.status_code >= 400:
+            raise(ACMEError(resp))
+        if resp.text:
+            return ACMEAccount(resp)
+        else:
+            return Empty(resp)
     
     def deactivate_acct(self, 
                         acct_obj: ACMEAccount, 
@@ -160,6 +174,8 @@ class ACMEAccountActions:
             method='post',
             jws=jws
         )
+        if resp.status_code >= 400:
+            raise(ACMEError(resp))
         return ACMEAccount(resp)
 
 

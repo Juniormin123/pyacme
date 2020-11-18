@@ -40,4 +40,3 @@ class ACMEAccount(_ACMERespObject):
             # sometimes server resp header may not include `"Location"` header,
             # when making account update request
             self.acct_location = resp.headers['Location']
-
