@@ -35,6 +35,8 @@ class JWSRS256(_JWSBase):
         # sig = rsa.sign(sign_input, self.jwk.priv_key, self.hash_method)
         sig = self.jwk.priv_key.sign(
             data=sign_input,
+            # PKCS padding for `RS256` signature
+            # see https://tools.ietf.org/html/rfc7518#section-3.3
             padding=padding.PKCS1v15(),
             algorithm=hashes.SHA256()
         )
