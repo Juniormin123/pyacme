@@ -115,11 +115,13 @@ class _JWSBase:
 class _ACMERespObject:
     """represent an object returned by an acme server"""
     
-    def __init__(self, resp: requests.Response):
-        # should not be empty
-        self._raw_resp_body = json.loads(resp.text)
+    def __init__(self, resp: requests.Response, *args, **kwargs):
+        # some response may not have content
+        self._raw_resp_body = dict()
+        if resp.text:
+            self._raw_resp_body = json.loads(resp.text)
         self._resp = resp
-        self._update_attr(resp)
+        self._update_attr(resp, *args, **kwargs)
         # set values for server specified fields that are not in rfc
         self.__dict__.update(self._raw_resp_body)
     
@@ -128,9 +130,10 @@ class _ACMERespObject:
     
     def __str__(self):
         # make a copy to prevent changes to origin dict
+        cls = type(self).__name__
         _dict = dict(self.__dict__)
         for k in [i for i in _dict if i.startswith('_raw')]:
             _dict.pop(k)
-        return str(_dict)
+        return f'{cls}({str(_dict)})'
     
     __repr__ = __str__
