@@ -119,13 +119,16 @@ class _ACMERespObject:
     
     def __init__(self, resp: requests.Response, *args, **kwargs):
         # some response may not have content
+        self._set_initial(resp)
+        self._update_attr(resp, *args, **kwargs)
+        # set values for server specified fields that are not in rfc
+        # self.__dict__.update(self._raw_resp_body)
+    
+    def _set_initial(self, resp: requests.Response) -> None:
         self._raw_resp_body = dict()
         if resp.text:
             self._raw_resp_body = json.loads(resp.text)
         self._resp = resp
-        self._update_attr(resp, *args, **kwargs)
-        # set values for server specified fields that are not in rfc
-        self.__dict__.update(self._raw_resp_body)
     
     def _update_attr(self, resp: requests.Response, *args, **kwargs) -> None:
         raise NotImplementedError
