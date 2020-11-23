@@ -87,10 +87,13 @@ class _JWSBase:
         protected_json = json.dumps(self.protected)
         protected_b64 = base64.urlsafe_b64encode(
             bytes(protected_json, encoding='utf-8')).strip(b'=')
-        # base64.urlsafe_b64encode(b'""').strip(b'=') -> b'IiI'
-        payload_b64 = b'IiI'
+
+        # empty payload, see rfc8555 p54 POST example
+        # this should not be the literal b'""'
+        payload_b64 = b""
+
         if isinstance(self.payload, (dict, list)):
-            # dict or list like payload
+            # dict or list like payload, empty dict will be json serialized
             payload_json = json.dumps(self.payload)
             payload_b64 = base64.urlsafe_b64encode(
                 bytes(payload_json, encoding='utf-8')).strip(b'=')
@@ -102,7 +105,6 @@ class _JWSBase:
 
         self.sign_input = protected_b64 + b'.' + payload_b64
 
-        # TODO proper behaviour when payload is empty
         self.post_body['protected'] = str(protected_b64, encoding='utf-8')
         self.post_body['payload'] = str(payload_b64, encoding='utf-8')
         return self.sign_input
@@ -131,9 +133,10 @@ class _ACMERespObject:
     def __str__(self):
         # make a copy to prevent changes to origin dict
         cls = type(self).__name__
-        _dict = dict(self.__dict__)
-        for k in [i for i in _dict if i.startswith('_raw')]:
-            _dict.pop(k)
-        return f'{cls}({str(_dict)})'
+        _dict = {
+            k : v for (k, v) in self.__dict__.items() if not k.startswith('_')
+        }
+        s = f'{cls}({str(_dict)})'
+        return s
     
     __repr__ = __str__
