@@ -5,7 +5,8 @@ from typing import Dict, Any, List, Tuple, Type, TypeVar, Union
 import base64
 import json
 
-from pyacme.ACMEobj import ACMEAccount, ACMEChallenge, Empty, ACMEOrder, ACMEAuthorization
+from pyacme.ACMEobj import ACMEAccount, ACMEChallenge, Empty, ACMEOrder
+from pyacme.ACMEobj import ACMEAuthorization
 from pyacme.requests import ACMERequestActions, Nonce
 from pyacme.exceptions import ACMEError
 from pyacme.base import _JWSBase, _JWKBase
@@ -46,7 +47,9 @@ class ACMEAccountActions:
         resp = self.req_action.new_account(jws)
         if resp.status_code >= 400:
             raise(ACMEError(resp))
-        return ACMEAccount(resp)
+        acct_obj = ACMEAccount(resp)
+        acct_obj.set_jwk(jwk)
+        return acct_obj
     
     def query_acct(self, jwk: _JWKBase, jws_type: TJWS) -> ACMEAccount:
         """
@@ -67,11 +70,13 @@ class ACMEAccountActions:
         resp = self.req_action.new_account(jws)
         if resp.status_code >= 400:
             raise(ACMEError(resp))
-        return ACMEAccount(resp)
+        acct_obj = ACMEAccount(resp)
+        acct_obj.set_jwk(jwk)
+        return acct_obj
     
     def update_acct(self, 
                     acct_obj: ACMEAccount,
-                    jwk: _JWKBase,
+                    # jwk: _JWKBase,
                     jws_type: TJWS,
                     **kwargs) -> ACMEAccount:
         """
@@ -85,7 +90,7 @@ class ACMEAccountActions:
             url=acct_obj.acct_location,
             nonce=str(self.req_action.nonce),
             payload=kwargs,
-            jwk=jwk,
+            jwk=acct_obj.jwk_obj,
             kid=acct_obj.acct_location
         )    # type: ignore
         jws.sign()
@@ -96,7 +101,9 @@ class ACMEAccountActions:
         )
         if resp.status_code >= 400:
             raise(ACMEError(resp))
-        return ACMEAccount(resp)
+        # return ACMEAccount(resp)
+        acct_obj.update(resp)
+        return acct_obj
     
     def external_acct_binding(self):
         """
@@ -107,7 +114,7 @@ class ACMEAccountActions:
     def acct_key_rollover(self, 
                           acct_obj: ACMEAccount,
                           jwk_new: _JWKBase,
-                          jwk_old: _JWKBase,
+                        #   jwk_old: _JWKBase,
                           jws_type: TJWS) -> Union[ACMEAccount, Empty]:
         """
         change the public key that is associtated with an account, both new and
@@ -122,7 +129,7 @@ class ACMEAccountActions:
             # inner payload is a "keyChange" object, see rfc8555 page 41
             payload={
                 'account': acct_obj.acct_location,
-                'oldKey': jwk_old._container
+                'oldKey': acct_obj.jwk_obj._container
             },
             jwk=jwk_new
         )    # type: ignore
@@ -134,22 +141,36 @@ class ACMEAccountActions:
             nonce=str(self.req_action.nonce),
             # payload=outer_payload,
             payload=inner_jws.post_body,
-            jwk=jwk_old,
+            jwk=acct_obj.jwk_obj,
             kid=acct_obj.acct_location
         )    # type: ignore
         outer_jws.sign()
         resp = self.req_action.key_change(outer_jws)
         if resp.status_code >= 400:
-            raise(ACMEError(resp))
+            raise ACMEError(resp)
+
+        acct_obj.set_jwk(jwk_new)
         if resp.text:
-            return ACMEAccount(resp)
+            # return ACMEAccount(resp)
+            acct_obj.update(resp)
+            return acct_obj
         else:
-            # in pebble always return empty resp body for key-change
-            return Empty(resp)
+            # in pebble always return empty resp body for key-change,
+            # return Empty(resp)
+            cls = type(self)
+            if len(cls.mro()) >= 2:
+                # ensure the parent method will be called
+                parent_query = super(cls, self)
+            else:
+                # if no subclass used
+                parent_query = self
+            query_resp = parent_query.query_acct(jwk_new, jws_type)._resp
+            acct_obj.update(query_resp)
+            return acct_obj
     
     def deactivate_acct(self, 
                         acct_obj: ACMEAccount, 
-                        jwk: _JWKBase,
+                        # jwk: _JWKBase,
                         jws_type: TJWS) -> ACMEAccount:
         """
         deactivate an account, issued certificate will not be revoked.
@@ -160,7 +181,7 @@ class ACMEAccountActions:
             url=acct_obj.acct_location,
             nonce=str(self.req_action.nonce),
             payload={'status': 'deactivated'},
-            jwk=jwk,
+            jwk=acct_obj.jwk_obj,
             kid=acct_obj.acct_location
         )    # type: ignore
         jws.sign()
@@ -171,7 +192,9 @@ class ACMEAccountActions:
         )
         if resp.status_code >= 400:
             raise(ACMEError(resp))
-        return ACMEAccount(resp)
+        # return ACMEAccount(resp)
+        acct_obj.update(resp)
+        return acct_obj
 
 
 class ACMECertificateAction:
@@ -185,7 +208,7 @@ class ACMECertificateAction:
                   identifiers: List[Dict[str, Any]],
                   not_before: str,
                   not_after: str,
-                  jwk: _JWKBase,
+                #   jwk: _JWKBase,
                   jws_type: TJWS) -> ACMEOrder:
         """
         request for new order, expect 201-created upon success. 
@@ -207,7 +230,7 @@ class ACMECertificateAction:
             url=self.req_action.acme_dir['newOrder'],
             nonce=str(self.req_action.nonce),
             payload=payload,
-            jwk=jwk,
+            jwk=acct_obj.jwk_obj,
             kid=acct_obj.acct_location
         )
         jws.sign()
@@ -221,7 +244,7 @@ class ACMECertificateAction:
     
     def identifier_auth(self, 
                         acct_obj: ACMEAccount,
-                        jwk: _JWKBase,
+                        # jwk: _JWKBase,
                         jws_type: TJWS) -> List[ACMEAuthorization]:
         """
         POST-as-GET to urls in `ACMEOrder.authorizations` to query an auth, 
@@ -231,12 +254,12 @@ class ACMECertificateAction:
         see https://tools.ietf.org/html/rfc8555#section-7.5
         """
         rtn: List[ACMEAuthorization] = []
-        for auth_url in acct_obj.order.authorizations:
+        for auth_url in acct_obj.order_obj.authorizations:
             jws = jws_type(
                 url=auth_url,
                 nonce=str(self.req_action.nonce),
                 payload="",
-                jwk=jwk,
+                jwk=acct_obj.jwk_obj,
                 kid=acct_obj.acct_location
             )
             jws.sign()
@@ -248,18 +271,23 @@ class ACMECertificateAction:
             if resp.status_code >= 400:
                 raise ACMEError(resp)
             rtn.append(ACMEAuthorization(resp))
+        # set account object's authorization attr
+        acct_obj.set_auth(rtn)
         return rtn
     
     def respond_to_challenge(self, 
                              chall_type: str,
                              acct_obj: ACMEAccount,
                              auth_obj: ACMEAuthorization,
-                             jwk: _JWKBase,
-                             jws_type: TJWS) -> ACMEAuthorization:
+                            #  jwk: _JWKBase,
+                             jws_type: TJWS) -> ACMEChallenge:
         """
         responde to a challenge url stated in the `challenges` attr in an
         `ACMEAuthorization` instance; payload is empty dict `{}`; expect 200-OK
         if chanllenge object is updated by server.
+         * pass `ACMEAuthorization` param to specify which auth should be 
+         responded to; the auth should be one from the `ACMEAccount` that passed
+         for the `acct_obj` param
          * return `ACMEAuthorization`
 
         see https://tools.ietf.org/html/rfc8555#section-7.5.1
@@ -271,7 +299,7 @@ class ACMECertificateAction:
             )
         _map = {'dns': 'dns-01', 'http': 'http-01', 'tls': 'tls-alpn-01'}
         rtn: Tuple[str, str]
-        for chall_obj in auth_obj.challenges:
+        for chall_obj in auth_obj.chall_objs:
             if chall_obj.type == _map[chall_type]:
                 # TODO may need to check status
                 # rtn = (chall_obj.url, chall_obj.token)
@@ -285,7 +313,7 @@ class ACMECertificateAction:
             url=url,
             nonce=str(self.req_action.nonce),
             payload=dict(),
-            jwk=jwk,
+            jwk=acct_obj.jwk_obj,
             kid=acct_obj.acct_location
         )
         jws.sign()
@@ -297,6 +325,7 @@ class ACMECertificateAction:
         if resp.status_code >= 400:
             raise ACMEError(resp)
         return ACMEChallenge(json.loads(resp.text))
+        
 
 
 class RS256Actions(ACMEAccountActions, ACMECertificateAction):
@@ -307,31 +336,27 @@ class RS256Actions(ACMEAccountActions, ACMECertificateAction):
     def query_acct(self, jwk: JWKRSA) -> ACMEAccount:
         return super().query_acct(jwk, jws_type=JWSRS256)
     
-    def update_acct(self, acct_obj: ACMEAccount, 
-                    jwk: _JWKBase, **kwargs) -> ACMEAccount:
-        return super().update_acct(acct_obj, jwk, JWSRS256, **kwargs)
+    def update_acct(self, acct_obj: ACMEAccount, **kwargs) -> ACMEAccount:
+        return super().update_acct(acct_obj, JWSRS256, **kwargs)
     
-    def acct_key_rollover(self, acct_obj: ACMEAccount, jwk_new: _JWKBase, 
-                          jwk_old: _JWKBase) -> ACMEAccount:
-        return super().acct_key_rollover(acct_obj, jwk_new, jwk_old, JWSRS256)
+    def acct_key_rollover(self, acct_obj: ACMEAccount, 
+                          jwk_new: _JWKBase) -> ACMEAccount:
+        return super().acct_key_rollover(acct_obj, jwk_new, JWSRS256)
     
-    def deactivate_acct(self, acct_obj: ACMEAccount, 
-                        jwk: _JWKBase) -> ACMEAccount:
-        return super().deactivate_acct(acct_obj, jwk, JWSRS256)
+    def deactivate_acct(self, acct_obj: ACMEAccount) -> ACMEAccount:
+        return super().deactivate_acct(acct_obj, JWSRS256)
     
-    def new_order(self, acct_obj: ACMEAccount, jwk: JWKRSA,
+    def new_order(self, acct_obj: ACMEAccount, 
                   identifiers: List[Dict[str, Any]], not_before: str = '',
                   not_after: str = '') -> ACMEOrder:
         return super().new_order(acct_obj, identifiers, not_before, 
-                                 not_after, jwk, JWSRS256)
+                                 not_after, JWSRS256)
     
-    def identifier_auth(self, acct_obj: ACMEAccount, 
-                        jwk: _JWKBase) -> List[ACMEAuthorization]:
-        return super().identifier_auth(acct_obj, jwk, JWSRS256)
+    def identifier_auth(self, acct_obj: ACMEAccount) -> List[ACMEAuthorization]:
+        return super().identifier_auth(acct_obj, JWSRS256)
     
     def respond_to_challenge(self, chall_type: str, acct_obj: ACMEAccount, 
-                             auth_obj: ACMEAuthorization, jwk: _JWKBase, 
-                             jws_type: TJWS) -> ACMEAuthorization:
+                             auth_obj: ACMEAuthorization) -> ACMEChallenge:
         return super().respond_to_challenge(
-            chall_type, acct_obj, auth_obj, jwk, JWSRS256
+            chall_type, acct_obj, auth_obj, JWSRS256
         )
