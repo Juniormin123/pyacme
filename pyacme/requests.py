@@ -120,3 +120,20 @@ class ACMERequestActions:
             headers=headers
         )
         return resp
+
+    def new_order(self, jws: _JWSBase,
+                  headers: Dict[str, Any] = dict()) -> requests.Response:
+        """
+        order creation request, expect 201-created if new order is created
+        successfully; header `Location` will return, containing an url to the
+        created order resources.
+
+        see https://tools.ietf.org/html/rfc8555#section-7.4, page 45-46
+        """
+        resp = self._request(
+            url=self.acme_dir['newOrder'],
+            method='post',
+            jws=jws,
+            headers=headers
+        )
+        return resp
