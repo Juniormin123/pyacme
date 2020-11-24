@@ -270,7 +270,7 @@ class ACMECertificateAction:
             )
             if resp.status_code >= 400:
                 raise ACMEError(resp)
-            rtn.append(ACMEAuthorization(resp))
+            rtn.append(ACMEAuthorization(resp, auth_url=auth_url))
         # set account object's authorization attr
         acct_obj.set_auth(rtn)
         return rtn
@@ -288,7 +288,7 @@ class ACMECertificateAction:
          * pass `ACMEAuthorization` param to specify which auth should be 
          responded to; the auth should be one from the `ACMEAccount` that passed
          for the `acct_obj` param
-         * return `ACMEAuthorization`
+         * return `ACMEChallenge`
 
         see https://tools.ietf.org/html/rfc8555#section-7.5.1
         """
@@ -300,33 +300,72 @@ class ACMECertificateAction:
         _map = {'dns': 'dns-01', 'http': 'http-01', 'tls': 'tls-alpn-01'}
         rtn: Tuple[str, str]
         for chall_obj in auth_obj.chall_objs:
+            # only one chall_obj will be responded to and updated
             if chall_obj.type == _map[chall_type]:
                 # TODO may need to check status
                 # rtn = (chall_obj.url, chall_obj.token)
                 url=chall_obj.url
-                break
+                jws = jws_type(
+                    url=url,
+                    nonce=str(self.req_action.nonce),
+                    payload=dict(),
+                    jwk=acct_obj.jwk_obj,
+                    kid=acct_obj.acct_location
+                )
+                jws.sign()
+                resp = self.req_action._request(
+                    url=url,
+                    method='post',
+                    jws=jws
+                )
+                if resp.status_code >= 400:
+                    raise ACMEError(resp)
+                # update chall_obj in auth_obj, this should be updated also in
+                # the auth_obj.chall_objs
+                chall_obj.update_by_resp(resp)
+                return chall_obj
+                # return ACMEChallenge(json.loads(resp.text))
         else:
             raise ValueError(
                 f'no matching challenge type for {auth_obj.challenges}'
             )
+    
+    def deactivate_auth(self, 
+                        acct_obj: ACMEAccount, 
+                        auth_obj: ACMEAuthorization,
+                        jws_type: TJWS) -> ACMEAuthorization:
+        """
+        request to deactivate an authorization; `auth_obj` should be one of the
+        element from `acct_obj.auth_objs`; accot_obj will be updated
+         * payload `{"status": "deactivated"}`
+         * return `ACMEAuthorization`
+
+        see https://tools.ietf.org/html/rfc8555#section-7.5.2
+        """
         jws = jws_type(
-            url=url,
+            url=auth_obj.auth_location,
             nonce=str(self.req_action.nonce),
-            payload=dict(),
+            payload={'status': 'deactivated'},
             jwk=acct_obj.jwk_obj,
             kid=acct_obj.acct_location
         )
         jws.sign()
         resp = self.req_action._request(
-            url=url,
+            url=auth_obj.auth_location,
             method='post',
             jws=jws
         )
         if resp.status_code >= 400:
             raise ACMEError(resp)
-        return ACMEChallenge(json.loads(resp.text))
+        auth_obj.update(resp)
+        # update auth obj in acct_obj.auth_objs
+        # TODO better solution for updating auth_obj
+        for i, _auth_obj in enumerate(acct_obj.auth_objs):
+            if auth_obj is _auth_obj:
+                acct_obj.auth_objs.pop(i)
+                acct_obj.auth_objs.append(_auth_obj)
+        return auth_obj
         
-
 
 class RS256Actions(ACMEAccountActions, ACMECertificateAction):
 
@@ -360,3 +399,7 @@ class RS256Actions(ACMEAccountActions, ACMECertificateAction):
         return super().respond_to_challenge(
             chall_type, acct_obj, auth_obj, JWSRS256
         )
+    
+    def deactivate_auth(self, acct_obj: ACMEAccount, 
+                        auth_obj: ACMEAuthorization) -> ACMEAuthorization:
+        return super().deactivate_auth(acct_obj, auth_obj, JWSRS256)
