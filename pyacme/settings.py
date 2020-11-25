@@ -1,3 +1,6 @@
+from pathlib import Path
+
+
 # url to acme server's /directory
 LETSENCRYPT_PRODUCTION = "https://acme-v02.api.letsencrypt.org/directory"
 LETSENCRYPT_STAGING = "https://acme-staging-v02.api.letsencrypt.org/directory"
@@ -17,6 +20,9 @@ PEBBLE_TEST = f"https://{TEST_IP}:{TEST_PORT}/dir"
 # see https://github.com/letsencrypt/pebble/tree/master/cmd/pebble-challtestsrv
 CHALL_TEST_PORT = 8055
 
+PEBBLE_CHALLTEST_DNS_A = f"http://{TEST_IP}:{CHALL_TEST_PORT}/add-a"
+PEBBLE_CHALLTEST_DNS_A_DEL = f"http://{TEST_IP}:{CHALL_TEST_PORT}/clear-a"
+
 PEBBLE_CHALLTEST_HTTP01 = f"http://{TEST_IP}:{CHALL_TEST_PORT}/add-http01"
 PEBBLE_CHALLTEST_HTTP01_DEL = f"http://{TEST_IP}:{CHALL_TEST_PORT}/del-http01"
 
@@ -25,3 +31,14 @@ PEBBLE_CHALLTEST_DNS01_DEL = f"http://{TEST_IP}:{CHALL_TEST_PORT}/clear-txt"
 
 PEBBLE_CHALLTEST_TLS01 = f"http://{TEST_IP}:{CHALL_TEST_PORT}/add-tlsalpn01"
 PEBBLE_CHALLTEST_TLS01_DEL = f"http://{TEST_IP}:{CHALL_TEST_PORT}/del-tlsalpn01"
+
+# name for pebble and challtest container
+PEBBLE_DOCKER_FILE = \
+    Path(__file__).parents[2].absolute() / 'pebble' / 'docker-compose.yml'
+PEBBLE_CONTAINER = 'pebble_pebble_1'
+PEBBLE_CHALLTEST_CONTAINER = 'pebble_challtestsrv_1'
+
+## test
+# print(Path(__file__).parents[2])
+# print(__file__)
+# print(PEBBLE_DOCKER_FILE)
