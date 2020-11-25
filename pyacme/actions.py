@@ -158,7 +158,8 @@ class ACMEAccountActions:
             # in pebble always return empty resp body for key-change,
             # return Empty(resp)
             cls = type(self)
-            if len(cls.mro()) >= 2:
+            if len(cls.mro()) > 2:
+                # this means subclass is calling method;
                 # ensure the parent method will be called
                 parent_query = super(cls, self)
             else:
