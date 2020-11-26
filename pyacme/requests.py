@@ -1,10 +1,12 @@
 from typing import Dict, Any
 import json
+import time
 
 import requests
 
 from pyacme.settings import LETSENCRYPT_STAGING
 from pyacme.base import _JWSBase
+from pyacme.exceptions import ACMEError
 
 
 class Nonce:
@@ -41,6 +43,7 @@ class ACMERequestActions:
     # use test as default for now
     dir_url = LETSENCRYPT_STAGING
     acme_dir: Dict[str, str] = dict()
+    badNonce_max_retry = 5
     
     @classmethod
     def set_directory_url(cls, dir_url: str) -> None:
@@ -65,13 +68,50 @@ class ACMERequestActions:
     def _request(self, url: str, method: str, jws: _JWSBase, 
                  headers: Dict[str, Any] = dict()) -> requests.Response:
         """send request to arbitrary url with signed jws"""
+
+        def _retry_for_badNonce(e: ACMEError) -> requests.Response:
+            # https://tools.ietf.org/html/rfc8555#section-6.5 p15
+            # retry automatically if badNonce error response happens
+            # replace the old nonce inside jws
+            nonlocal jws, self
+            jws.update_jws_nonce(str(e.new_nonce))
+            jws.sign()
+            # new request with retry for new nonce
+            resp = getattr(requests, method.lower())(
+                url=url,
+                data=json.dumps(jws.post_body),
+                headers=headers
+            )
+            self.nonce.update_from_resp(resp)
+            return resp
+
         headers.update(self.common_header)
+        resp: requests.Response
         resp = getattr(requests, method.lower())(
             url=url,
             data=json.dumps(jws.post_body),
             headers=headers
         )
         self.nonce.update_from_resp(resp)
+
+        # retry multiple times until badNonce clear
+        count = 0
+        max_count = self.badNonce_max_retry
+        while resp.status_code >= 400 and count <= max_count:
+            e = ACMEError(resp)
+            if e.type == 'badNonce':
+                count += 1
+                # TODO proper log
+                print(f'badNonce, retry for {count} time')
+                resp = _retry_for_badNonce(e)
+            else:
+                # do not retry if error type is not badNonce
+                break
+
+            ## this does not handle <http-date> format, ignore for now
+            # if 'Retry-After' in resp.headers:
+            #     time.sleep(float(resp.headers['Retry-After']))
+
         return resp
 
     def new_nonce(self, headers: Dict[str, Any] = dict()) -> None:

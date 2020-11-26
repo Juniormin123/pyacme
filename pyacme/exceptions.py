@@ -20,7 +20,7 @@ class ACMEError(Exception):
 
     def _update_exeception(self, resp: requests.Response) -> None:
         cls = type(self)
-        self.status_code = resp.status_code
+        self._status_code = resp.status_code
         if resp.text:
             _content = json.loads(resp.text)
             # type e.g. "urn:ietf:params:acme:error:badCSR"
@@ -32,11 +32,14 @@ class ACMEError(Exception):
                 _content.pop('subproblems')
             # load rest attributes
             self.__dict__.update(_content)
+            # if badNonce error raised, new nonce should be returned by server
+            if 'Replay-Nonce' in resp.headers:
+                self.new_nonce = resp.headers['Replay-Nonce']
     
     def __str__(self) -> str:
         cls = type(self).__name__
         _dict = {
             k : v for (k, v) in self.__dict__.items() if not k.startswith('_')
         }
-        s = f'{cls}({str(_dict)})'
+        s = f'{cls}[{self.type} {self._status_code}]({str(_dict)})'
         return s
