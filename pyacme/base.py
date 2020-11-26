@@ -80,6 +80,10 @@ class _JWSBase:
         self.signature = ''
         self.post_body: Dict[str, str] = dict()
     
+    def update_jws_nonce(self, new_nonce: str) -> None:
+        self.nonce = new_nonce
+        self.protected['nonce'] = new_nonce
+    
     def get_sign_input(self) -> bytes:
         """
         see https://tools.ietf.org/html/rfc7515#section-2 Signing Input
