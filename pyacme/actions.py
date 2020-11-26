@@ -250,7 +250,7 @@ class ACMECertificateAction:
         """
         POST-as-GET to urls in `ACMEOrder.authorizations` to query an auth, 
         payload is empty string `""`; 
-         * return `ACMEAuthorization`
+         * return `List[ACMEAuthorization]`
 
         see https://tools.ietf.org/html/rfc8555#section-7.5
         """
@@ -283,7 +283,7 @@ class ACMECertificateAction:
                             #  jwk: _JWKBase,
                              jws_type: TJWS) -> ACMEChallenge:
         """
-        responde to a challenge url stated in the `challenges` attr in an
+        respond to a challenge url stated in the `challenges` attr in an
         `ACMEAuthorization` instance; payload is empty dict `{}`; expect 200-OK
         if chanllenge object is updated by server.
          * pass `ACMEAuthorization` param to specify which auth should be 
@@ -321,8 +321,8 @@ class ACMECertificateAction:
                 )
                 if resp.status_code >= 400:
                     raise ACMEError(resp)
-                # update chall_obj in auth_obj, this should be updated also in
-                # the auth_obj.chall_objs
+                # update chall_obj, this should be updated also in
+                # the auth_obj.chall_objs by querying identifier_auth() again
                 chall_obj.update_by_resp(resp)
                 return chall_obj
                 # return ACMEChallenge(json.loads(resp.text))

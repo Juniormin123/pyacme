@@ -26,7 +26,7 @@ class ACMEAccount(_ACMERespObject):
             # (field_name, default_value if server not provided)
             ('status', ''),
             ('contact', list()),
-            ('termsOfServiceAgreed', ''),    # boolean
+            ('termsOfServiceAgreed', ''),       # boolean
             ('externalAccountBinding', dict()), # object
             ('orders', '')
         ]
@@ -139,7 +139,7 @@ class ACMEAuthorization(_ACMERespObject):
             # identifier: dict, which must contain "type", "value"
             # {'type': str, 'value': ''}
             # see rfc8555 p29
-            ('identifier', dict()),    # object
+            ('identifier', dict()),     # object
 
             # challenge: list of dict, may be decided by server
             ('challenges', list()),     # required, array of objects
@@ -152,7 +152,7 @@ class ACMEAuthorization(_ACMERespObject):
         
         if not hasattr(self, 'auth_location'):
             self.auth_location = ''
-        # auth location comes from order obect's authorization field
+        # auth location comes from order object's authorization field
         if 'auth_url' in kwargs:
             self.auth_location = kwargs['auth_url']
 
