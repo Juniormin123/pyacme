@@ -10,7 +10,7 @@ test using pebble-challtestsrv:
 see https://github.com/letsencrypt/pebble/blob/master/cmd/pebble-challtestsrv/README.md
 """
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from pathlib import Path
 import time
 import json
@@ -26,13 +26,13 @@ from cryptography.hazmat.backends import default_backend
 import sys
 sys.path.append(str(Path(__file__).parents[1].absolute()))
 
-from pyacme.base import _JWKBase
+from pyacme.base import _JWKBase, _JWSBase
 from pyacme.util import get_keyAuthorization
 from pyacme.jwk import JWKRSA
 from pyacme.jws import JWSRS256
 from pyacme.exceptions import ACMEError
-from pyacme.actions import ACMEAccountActions
-from pyacme.ACMEobj import ACMEAccount
+from pyacme.actions import ACMEAccountActions, ACMECertificateAction
+from pyacme.ACMEobj import ACMEAccount, ACMEAuthorization, ACMEOrder
 from pyacme.requests import ACMERequestActions, Nonce
 from pyacme.settings import *
 
@@ -355,3 +355,156 @@ class ACMEAccountActionsTest(unittest.TestCase):
     def tearDown(self) -> None:
         stop_pebble_docker(PEBBLE_CONTAINER, PEBBLE_CHALLTEST_CONTAINER)
     
+
+def _cert_actions(self, 
+                  jws_type: _JWSBase, 
+                  jwk_list: List[_JWKBase],
+                  jwk_index: int = 0,
+                  new_order: bool = False,
+                  identifier_auth: bool = False) -> Tuple[
+                      ACMEAccount,
+                      Optional[ACMEOrder],
+                      Optional[List[ACMEAuthorization]]
+                  ]:
+    # create an account
+    order = None
+    auth_list = []
+    acct = self.acct_actions.create_acct(
+        jwk=jwk_list[jwk_index],
+        contact=_TEST_CONTACTS,
+        jws_type=jws_type
+    )
+    if new_order:
+        self.cert_actions.req_action.new_nonce()
+        order = self.cert_actions.new_order(
+            acct_obj=acct,
+            identifiers=self.test_identifiers,
+            not_before='',
+            not_after='',
+            jws_type=jws_type
+        )
+    if new_order and identifier_auth:
+        auth_list = self.cert_actions.identifier_auth(
+            acct_obj=acct,
+            jws_type=jws_type
+        )
+    return acct, order, auth_list
+
+
+class ACMECertificateActionTest(unittest.TestCase):
+
+    def setUp(self) -> None:
+        run_pebble_docker(str(PEBBLE_DOCKER_FILE))
+
+        _set_up_rsa(self)
+
+        self.jws_types = [JWSRS256]
+        self.jwk_list = [self.rsa_test['jwk_rsa_list']]    # type: ignore
+
+        self.test_identifiers = [{'type': 'dns', 'value': 'test.local'}]
+
+        # set pebble addr for testing
+        ACMERequestActions.set_directory_url(PEBBLE_TEST)
+        ACMERequestActions.query_dir()
+        self.cert_actions = ACMECertificateAction(ACMERequestActions(Nonce()))
+        self.acct_actions = ACMEAccountActions(ACMERequestActions(Nonce()))
+    
+    def test_new_order(self):
+        """
+        basic test creating new order, no `not_before`, `not_after` given, and
+        only one `identifier` is set.
+        """
+        if global_docker_is_running:
+            restart_pebble_docker(
+                PEBBLE_DOCKER_FILE, 
+                PEBBLE_CONTAINER, 
+                PEBBLE_CHALLTEST_CONTAINER
+            )
+        self.acct_actions.req_action.new_nonce()
+        # make sure jws and jwk are paired
+        for jws_type, jwk_list in zip(self.jws_types, self.jwk_list):
+            with self.subTest(jws_type=jws_type, jwk_list=jwk_list):
+                # create an account
+                acct, order, _ = _cert_actions(
+                    self, jws_type, jwk_list, 0, True
+                )
+                # check status code, expect 201-created
+                self.assertEqual(order._resp.status_code, 201)
+                # check returned order object attr
+                self.assertTrue(hasattr(order, 'status'))
+                # acct obj should update itself with the returned order obj
+                self.assertIs(acct.order_obj, order)
+                # check whether order_location is empty
+                self.assertTrue(acct.order_obj.order_location)
+
+    def test_identifier_auth(self):
+        """test query for auth obj, only one auth in this test"""
+        if global_docker_is_running:
+            restart_pebble_docker(
+                PEBBLE_DOCKER_FILE, 
+                PEBBLE_CONTAINER, 
+                PEBBLE_CHALLTEST_CONTAINER
+            )
+        self.acct_actions.req_action.new_nonce()
+        # make sure jws and jwk are paired
+        for jws_type, jwk_list in zip(self.jws_types, self.jwk_list):
+            with self.subTest(jws_type=jws_type, jwk_list=jwk_list):
+                # create an account
+                acct, order, auth_list = _cert_actions(
+                    self, jws_type, jwk_list, 0, True, True
+                )
+                # check status code, expect 200-OK
+                for auth in auth_list:
+                    self.assertEqual(auth._resp.status_code, 200)
+                    # check attrs of auth_obj
+                    self.assertTrue(hasattr(auth, 'status'))
+                    self.assertTrue(hasattr(auth, 'challenges'))
+                    # updated ACMEChallenge objects
+                    self.assertTrue(hasattr(auth, 'chall_objs'))
+                    # chall_objs should not be empty
+                    self.assertTrue(acct.auth_objs[0].chall_objs)
+                    # check existence of challenges
+                # check whether acct obj update with auth_list
+                self.assertIs(acct.auth_objs, auth_list)
+
+    def test_respond_to_challenge(self):
+        """also test generation of keyAuthrization thumbprint"""
+        if global_docker_is_running:
+            restart_pebble_docker(
+                PEBBLE_DOCKER_FILE, 
+                PEBBLE_CONTAINER, 
+                PEBBLE_CHALLTEST_CONTAINER
+            )
+        self.acct_actions.req_action.new_nonce()
+        # make sure jws and jwk are paired
+        for jws_type, jwk_list in zip(self.jws_types, self.jwk_list):
+            with self.subTest(jws_type=jws_type, jwk_list=jwk_list):
+                acct, order, auth_list = _cert_actions(
+                    self, jws_type, jwk_list, 0, True, True
+                )
+                # prepare for challenge
+                for chall_obj in acct.auth_objs[0].chall_objs:
+                    if chall_obj.type == 'http-01':
+                        token = chall_obj.token
+                        add_http_01(token, jwk_list[0])
+
+                # signal server for challenge is prepared
+                chall = self.cert_actions.respond_to_challenge(
+                    chall_type='http',
+                    acct_obj=acct,
+                    auth_obj=acct.auth_objs[0],
+                    jws_type=jws_type
+                )
+                # check return status, expect 200-OK if server is commencing
+                # challenge request
+                self.assertEqual(chall._resp.status_code, 200)
+
+                # wait for some time then poll the status of auth_obj, 
+                # status should become "valid"
+                time.sleep(8)
+                responded = self.cert_actions.identifier_auth(acct, jws_type)
+                # auth_objs in acct should be updated
+                self.assertEqual(acct.auth_objs[0].status, 'valid')
+
+    def tearDown(self) -> None:
+        stop_pebble_docker(PEBBLE_CONTAINER, PEBBLE_CHALLTEST_CONTAINER)
