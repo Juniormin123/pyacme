@@ -62,10 +62,10 @@ def _run_cmd(*cmd_args: str) -> None:
         # should raise exception if docker failed to run
         check=True
     )
-    if completed.stdout:
-        print(completed.stdout)
-    # docker output seems to be on stderr
-    print(completed.stderr)
+    # if completed.stdout:
+    #     print(completed.stdout)
+    # # docker output seems to be on stderr
+    # print(completed.stderr)
 
 
 def run_pebble_docker(docker_file_path: str) -> None:
@@ -138,13 +138,56 @@ def _set_up_rsa(self):
     )
     self.rsa_test['jwk_rsa_list'] = []
     for key_pair in self.rsa_test['key_pair']:
-        pub_k = key_pair[1]
         jwk_rsa = JWKRSA(
             priv_key=key_pair[1],
             n=key_pair[0].public_numbers().n,
             e=key_pair[0].public_numbers().e
         )
         self.rsa_test['jwk_rsa_list'].append(jwk_rsa)
+
+
+class ACMERequestActionsTest(unittest.TestCase):
+
+    def setUp(self) -> None:
+        run_pebble_docker(str(PEBBLE_DOCKER_FILE))
+
+        _set_up_rsa(self)
+
+        self.jws_types = [JWSRS256]
+        self.jwk_list = [self.rsa_test['jwk_rsa_list']]    # type: ignore
+
+        ACMERequestActions.set_directory_url(PEBBLE_TEST)
+        ACMERequestActions.query_dir()
+
+        self.req_action = ACMERequestActions()
+    
+    def test_retry_badNonce(self):
+        self.req_action.new_nonce()
+        for jws_type, jwk_list in zip(self.jws_types, self.jwk_list):
+            with self.subTest(jws_type=jws_type, jwk=jwk_list):
+                # create jws
+                jws = jws_type(
+                    url=self.req_action.acme_dir['newAccount'],
+                    # use a broken nonce, should be able to retry
+                    nonce='badNonce',
+                    jwk=jwk_list[0],
+                    payload={
+                        'termsOfServiceAgreed': True,
+                        'contact': _TEST_CONTACTS
+                    },
+                )
+                jws.sign()
+                resp = self.req_action.new_account(jws)
+
+                # test output
+                if resp.status_code >= 400:
+                    print(ACMEError(resp))
+
+                # check status code, expect 201-created
+                self.assertEqual(resp.status_code, 201)
+    
+    def tearDown(self) -> None:
+        stop_pebble_docker(PEBBLE_CONTAINER, PEBBLE_CHALLTEST_CONTAINER)
 
 
 class ACMEAccountActionsTest(unittest.TestCase):
