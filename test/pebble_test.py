@@ -91,6 +91,15 @@ def restart_pebble_docker(docker_file_path: str, *docker_names: str) -> None:
     run_pebble_docker(docker_file_path)
 
 
+def restart_pebble_docker_specific():
+    if global_docker_is_running:
+        restart_pebble_docker(
+            PEBBLE_DOCKER_FILE, 
+            PEBBLE_CONTAINER, 
+            PEBBLE_CHALLTEST_CONTAINER
+        )
+
+
 def add_dns_A(host: str, addr: str) -> requests.Response:
     """add an A record to pebble-challtestsrv"""
     data = json.dumps({'host': host, 'address': addr})
@@ -250,12 +259,7 @@ class ACMEAccountActionsTest(unittest.TestCase):
                 self.assertEqual(acct._resp.status_code, 200)
     
     def test_update_acct(self):
-        if global_docker_is_running:
-            restart_pebble_docker(
-                PEBBLE_DOCKER_FILE, 
-                PEBBLE_CONTAINER, 
-                PEBBLE_CHALLTEST_CONTAINER
-            )
+        restart_pebble_docker_specific()
         self.acct_actions.req_action.new_nonce()
         for jws_type, jwk_list in zip(self.jws_types, self.jwk_list):
             with self.subTest(jws_type=jws_type, jwk_list=jwk_list):
@@ -285,12 +289,7 @@ class ACMEAccountActionsTest(unittest.TestCase):
         pass
 
     def test_acct_key_rollover(self):
-        if global_docker_is_running:
-            restart_pebble_docker(
-                PEBBLE_DOCKER_FILE, 
-                PEBBLE_CONTAINER, 
-                PEBBLE_CHALLTEST_CONTAINER
-            )
+        restart_pebble_docker_specific()
         self.acct_actions.req_action.new_nonce()
         for jws_type, jwk_list in zip(self.jws_types, self.jwk_list):
             with self.subTest(jws_type=jws_type, jwk_list=jwk_list):
@@ -321,12 +320,7 @@ class ACMEAccountActionsTest(unittest.TestCase):
                 )
     
     def test_deactivate_acct(self):
-        if global_docker_is_running:
-            restart_pebble_docker(
-                PEBBLE_DOCKER_FILE, 
-                PEBBLE_CONTAINER, 
-                PEBBLE_CHALLTEST_CONTAINER
-            )
+        restart_pebble_docker_specific()
         self.acct_actions.req_action.new_nonce()
         for jws_type, jwk_list in zip(self.jws_types, self.jwk_list):
             with self.subTest(jws_type=jws_type, jwk_list=jwk_list):
@@ -366,6 +360,9 @@ def _cert_actions(self,
                       Optional[ACMEOrder],
                       Optional[List[ACMEAuthorization]]
                   ]:
+    """
+    procedure of creating acct, applying for new order and querying for auth
+    """
     # create an account
     order = None
     auth_list = []
@@ -414,12 +411,7 @@ class ACMECertificateActionTest(unittest.TestCase):
         basic test creating new order, no `not_before`, `not_after` given, and
         only one `identifier` is set.
         """
-        if global_docker_is_running:
-            restart_pebble_docker(
-                PEBBLE_DOCKER_FILE, 
-                PEBBLE_CONTAINER, 
-                PEBBLE_CHALLTEST_CONTAINER
-            )
+        restart_pebble_docker_specific()
         self.acct_actions.req_action.new_nonce()
         # make sure jws and jwk are paired
         for jws_type, jwk_list in zip(self.jws_types, self.jwk_list):
@@ -439,12 +431,7 @@ class ACMECertificateActionTest(unittest.TestCase):
 
     def test_identifier_auth(self):
         """test query for auth obj, only one auth in this test"""
-        if global_docker_is_running:
-            restart_pebble_docker(
-                PEBBLE_DOCKER_FILE, 
-                PEBBLE_CONTAINER, 
-                PEBBLE_CHALLTEST_CONTAINER
-            )
+        restart_pebble_docker_specific()
         self.acct_actions.req_action.new_nonce()
         # make sure jws and jwk are paired
         for jws_type, jwk_list in zip(self.jws_types, self.jwk_list):
@@ -469,12 +456,7 @@ class ACMECertificateActionTest(unittest.TestCase):
 
     def test_respond_to_challenge(self):
         """also test generation of keyAuthrization thumbprint"""
-        if global_docker_is_running:
-            restart_pebble_docker(
-                PEBBLE_DOCKER_FILE, 
-                PEBBLE_CONTAINER, 
-                PEBBLE_CHALLTEST_CONTAINER
-            )
+        restart_pebble_docker_specific()
         self.acct_actions.req_action.new_nonce()
         # make sure jws and jwk are paired
         for jws_type, jwk_list in zip(self.jws_types, self.jwk_list):

@@ -1,6 +1,4 @@
 # type: ignore[override]
-from email.message import EmailMessage
-from os import kill
 from typing import Dict, Any, List, Tuple, Type, TypeVar, Union
 import base64
 import json
@@ -12,6 +10,9 @@ from pyacme.exceptions import ACMEError
 from pyacme.base import _JWSBase, _JWKBase
 from pyacme.jws import JWSRS256
 from pyacme.jwk import JWKRSA
+
+
+__all__ = [ACMEAccountActions, ACMECertificateAction, RS256Actions]
 
 
 # TODO proper logging
@@ -30,7 +31,7 @@ class ACMEAccountActions:
                     contact: List[str], 
                     jws_type: TJWS) -> ACMEAccount:
         """
-        create acme account using RSA pub key, contact should
+        create acme account using a pub key, contact should
         be a list of "mailto:" address; upon success return
         201-created; if account exist, return 200-OK
         """
