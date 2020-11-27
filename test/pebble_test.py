@@ -16,7 +16,6 @@ import time
 import json
 import subprocess
 import unittest
-from unittest.case import skip
 
 import requests
 from cryptography.hazmat.primitives import serialization
@@ -487,6 +486,35 @@ class ACMECertificateActionTest(unittest.TestCase):
                 responded = self.cert_actions.identifier_auth(acct, jws_type)
                 # auth_objs in acct should be updated
                 self.assertEqual(acct.auth_objs[0].status, 'valid')
+    
+    def test_deactivate_auth(self):
+        restart_pebble_docker_specific()
+        self.acct_actions.req_action.new_nonce()
+        # make sure jws and jwk are paired
+        for jws_type, jwk_list in zip(self.jws_types, self.jwk_list):
+            with self.subTest(jws_type=jws_type, jwk_list=jwk_list):
+                acct, order, auth_list = _cert_actions(
+                    self, jws_type, jwk_list, 0, True, True
+                )
+                # deactivate one auth object from acct_obj
+                auth_deact = self.cert_actions.deactivate_auth(
+                    acct_obj=acct,
+                    auth_obj=acct.auth_objs[0],
+                    jws_type=jws_type
+                )
+                # check return status, expect 200-OK
+                self.assertEqual(auth_deact._resp.status_code, 200)
+                # check returned auth_obj status
+                self.assertEqual(auth_deact.status, 'deactivated')
+
+                # query auth for acct_obj
+                auth_requery = self.cert_actions.identifier_auth(
+                    acct_obj=acct,
+                    jws_type=jws_type
+                )
+                # the auth object should be updated and with status deactivated
+                # in this test only one auth_obj should exist
+                self.assertEqual(auth_requery[0].status, 'deactivated')
 
     def tearDown(self) -> None:
         stop_pebble_docker(PEBBLE_CONTAINER, PEBBLE_CHALLTEST_CONTAINER)

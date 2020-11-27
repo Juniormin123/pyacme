@@ -12,7 +12,7 @@ from pyacme.jws import JWSRS256
 from pyacme.jwk import JWKRSA
 
 
-__all__ = [ACMEAccountActions, ACMECertificateAction, RS256Actions]
+__all__ = ['ACMEAccountActions', 'ACMECertificateAction', 'RS256Actions']
 
 
 # TODO proper logging
