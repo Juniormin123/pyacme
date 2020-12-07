@@ -133,7 +133,7 @@ def load_test_keys(*key_pair_path) -> List[tuple]:
                 password=None,
                 backend=default_backend()
             )
-        key_pairs.append((pub_key, priv_key))
+        key_pairs.append(((pub_key, priv_key), priv_path))
     return key_pairs
 
 
@@ -145,11 +145,12 @@ def _set_up_rsa(self):
         (_RSA_PUB_2, _RSA_PRIV_2)
     )
     self.rsa_test['jwk_rsa_list'] = []
-    for key_pair in self.rsa_test['key_pair']:
+    for key_pair, priv_key_path in self.rsa_test['key_pair']:
         jwk_rsa = JWKRSA(
             priv_key=key_pair[1],
             n=key_pair[0].public_numbers().n,
-            e=key_pair[0].public_numbers().e
+            e=key_pair[0].public_numbers().e,
+            priv_key_path=priv_key_path
         )
         self.rsa_test['jwk_rsa_list'].append(jwk_rsa)
 
@@ -515,6 +516,40 @@ class ACMECertificateActionTest(unittest.TestCase):
                 # the auth object should be updated and with status deactivated
                 # in this test only one auth_obj should exist
                 self.assertEqual(auth_requery[0].status, 'deactivated')
+    
+    def test_finalize_order(self):
+        restart_pebble_docker_specific()
+        self.acct_actions.req_action.new_nonce()
+        # make sure jws and jwk are paired
+        for jws_type, jwk_list in zip(self.jws_types, self.jwk_list):
+            with self.subTest(jws_type=jws_type, jwk_list=jwk_list):
+                acct, order, auth_list = _cert_actions(
+                    self, jws_type, jwk_list, 0, True, True
+                )
+                for chall_obj in acct.auth_objs[0].chall_objs:
+                    if chall_obj.type == 'http-01':
+                        token = chall_obj.token
+                        add_http_01(token, jwk_list[0])
+
+                chall = self.cert_actions.respond_to_challenge(
+                    chall_type='http',
+                    acct_obj=acct,
+                    auth_obj=acct.auth_objs[0],
+                    jws_type=jws_type
+                )
+                # wait for order to be ready, then finalize
+                time.sleep(8)
+                # finalize order, with test subject names for csr
+                order_obj_list = self.cert_actions.finalize_order(
+                    acct_obj=acct,
+                    subject_names={'C': 'CN', 'O': 'test organization'},
+                    jws_type=jws_type
+                )
+                for order_obj in order_obj_list:
+                    # check return status, expect 200-OK
+                    self.assertEqual(order_obj._resp.status_code, 200)
+                    # check order status
+                    self.assertEqual(order_obj.status, 'valid')
 
     def tearDown(self) -> None:
         stop_pebble_docker(PEBBLE_CONTAINER, PEBBLE_CHALLTEST_CONTAINER)

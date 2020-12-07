@@ -8,6 +8,7 @@ from pyacme.ACMEobj import ACMEAuthorization
 from pyacme.request import ACMERequestActions, Nonce
 from pyacme.exceptions import ACMEError
 from pyacme.base import _JWSBase, _JWKBase
+from pyacme.util import parse_csr
 from pyacme.jws import JWSRS256
 from pyacme.jwk import JWKRSA
 
@@ -370,16 +371,43 @@ class ACMECertificateAction:
 
     def finalize_order(self, 
                        acct_obj: ACMEAccount, 
-                       jws_type: TJWS) -> ACMEOrder:
+                       subject_names: Dict[str, str],
+                       jws_type: TJWS) -> List[ACMEOrder]:
         """
         request to finalize acme order. `ACMEOrder` is tied to one 
         `AMCEAccount`, expect 200-OK if finalize is completed.
          * payload is b64 encoded `CSR`
-         * return `ACMEOrder`
+         * return `List[ACMEOrder]`
 
         see https://tools.ietf.org/html/rfc8555#section-7.4 p47
         """
-        # TODO CSR parse
+        rtn: List[ACMEOrder] = []
+        for identifier in acct_obj.order_obj.identifiers:
+            csr_der_output = parse_csr(
+                privkey_path=acct_obj.jwk_obj.priv_key_path,
+                CN=identifier['value'],
+                **subject_names
+            )
+            csr_der_b = base64.urlsafe_b64encode(csr_der_output).strip(b'=')
+            jws = jws_type(
+                url=acct_obj.order_obj.finalize,
+                nonce=str(self.req_action.nonce),
+                payload={
+                    'csr': csr_der_b.decode('utf-8'),
+                },
+                jwk=acct_obj.jwk_obj,
+                kid=acct_obj.acct_location
+            )
+            jws.sign()
+            resp = self.req_action._request(
+                url=acct_obj.order_obj.finalize,
+                method='post',
+                jws=jws
+            )
+            if resp.status_code >= 400:
+                raise ACMEError(resp)
+            rtn.append(ACMEOrder(resp))
+        return rtn
 
 
 class RS256Actions(ACMEAccountActions, ACMECertificateAction):
