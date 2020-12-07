@@ -19,6 +19,10 @@ class JWKRSA(_JWKBase):
         self.n: int
         self.e: int
         self.priv_key = priv_key
+        self.priv_key_path = ''
+        # update path of private key
+        if 'priv_key_path' in kwargs:
+            self.priv_key_path = kwargs['priv_key_path']
         super().__init__(self.kty, **kwargs)
     
     def _check_kty_param(self, kwargs: dict) -> None:
