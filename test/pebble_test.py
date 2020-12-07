@@ -32,7 +32,7 @@ from pyacme.jws import JWSRS256
 from pyacme.exceptions import ACMEError
 from pyacme.actions import ACMEAccountActions, ACMECertificateAction
 from pyacme.ACMEobj import ACMEAccount, ACMEAuthorization, ACMEOrder
-from pyacme.requests import ACMERequestActions, Nonce
+from pyacme.request import ACMERequestActions, Nonce
 from pyacme.settings import *
 
 

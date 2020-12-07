@@ -5,7 +5,7 @@ import json
 
 from pyacme.ACMEobj import ACMEAccount, ACMEChallenge, Empty, ACMEOrder
 from pyacme.ACMEobj import ACMEAuthorization
-from pyacme.requests import ACMERequestActions, Nonce
+from pyacme.request import ACMERequestActions, Nonce
 from pyacme.exceptions import ACMEError
 from pyacme.base import _JWSBase, _JWKBase
 from pyacme.jws import JWSRS256
@@ -367,7 +367,20 @@ class ACMECertificateAction:
                 acct_obj.auth_objs.pop(i)
                 acct_obj.auth_objs.append(_auth_obj)
         return auth_obj
-        
+
+    def finalize_order(self, 
+                       acct_obj: ACMEAccount, 
+                       jws_type: TJWS) -> ACMEOrder:
+        """
+        request to finalize acme order. `ACMEOrder` is tied to one 
+        `AMCEAccount`, expect 200-OK if finalize is completed.
+         * payload is b64 encoded `CSR`
+         * return `ACMEOrder`
+
+        see https://tools.ietf.org/html/rfc8555#section-7.4 p47
+        """
+        # TODO CSR parse
+
 
 class RS256Actions(ACMEAccountActions, ACMECertificateAction):
 
