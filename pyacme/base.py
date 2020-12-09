@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, Union, List
+from typing import Dict, Any, Optional, Type, Union, List
 import base64
 import json
 
@@ -7,6 +7,8 @@ import requests
 
 class _JWKBase: 
     """JWK object is a memeber of protected header and then encoded by b64"""
+
+    related_JWS: Type['_JWSBase']
     
     def __init__(self, kty: str, **kwargs):
         # _container will be serialised by json then b64 encoded
@@ -113,7 +115,7 @@ class _JWSBase:
         self.post_body['payload'] = str(payload_b64, encoding='utf-8')
         return self.sign_input
     
-    def sign(self) -> None:
+    def sign(self, *args, **kwargs) -> None:
         # update signature to self.post_body, str type signature generated
         raise NotImplementedError
 
