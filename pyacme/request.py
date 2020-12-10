@@ -4,8 +4,8 @@ import time
 
 import requests
 
-from pyacme.settings import LETSENCRYPT_STAGING
-from pyacme.base import _JWSBase
+from pyacme.settings import LETSENCRYPT_STAGING, VERIFY_SSL
+from pyacme.base import _JWSBase, _ACMERequestBase
 from pyacme.exceptions import ACMEError
 
 
@@ -31,7 +31,7 @@ class Nonce:
     __repr__ = __str__
 
 
-class ACMERequestActions:
+class ACMERequestActions(_ACMERequestBase):
     
     # TODO possible threadsafe solution
     # for nonce updating
@@ -56,7 +56,7 @@ class ACMERequestActions:
         see https://tools.ietf.org/html/rfc8555#section-7.1
         """
         # no special headers needed
-        _resp = requests.get(url=cls.dir_url, headers=headers)
+        _resp = requests.get(cls.dir_url, headers=headers, verify=VERIFY_SSL)
         cls.acme_dir = json.loads(_resp.text)
         
     def __init__(self, nonce: Nonce = Nonce()):
@@ -80,7 +80,8 @@ class ACMERequestActions:
             resp = getattr(requests, method.lower())(
                 url=url,
                 data=json.dumps(jws.post_body),
-                headers=headers
+                headers=headers,
+                verify=VERIFY_SSL
             )
             self.nonce.update_from_resp(resp)
             return resp
@@ -90,7 +91,8 @@ class ACMERequestActions:
         resp = getattr(requests, method.lower())(
             url=url,
             data=json.dumps(jws.post_body),
-            headers=headers
+            headers=headers,
+            verify=VERIFY_SSL
         )
         self.nonce.update_from_resp(resp)
 
@@ -117,7 +119,11 @@ class ACMERequestActions:
     def new_nonce(self, headers: Dict[str, Any] = dict()) -> None:
         """get new nonce explicitly, use HEAD method, expect 200"""
         # no special headers needed
-        resp = requests.head(self.acme_dir['newNonce'], headers=headers)
+        resp = requests.head(
+            self.acme_dir['newNonce'], 
+            headers=headers,
+            verify=VERIFY_SSL
+        )
         self.nonce.update_from_resp(resp)
         
     def new_account(self, jws: _JWSBase, 

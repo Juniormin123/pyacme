@@ -9,8 +9,11 @@ LETSENCRYPT_STAGING = "https://acme-staging-v02.api.letsencrypt.org/directory"
 # https://github.com/letsencrypt/pebble
 
 # to prevent client ssl error, append test/certs/pebble.minica.pem to python
-# package `certifi` cacert.pem which is used by `requests`
+# package `certifi` cacert.pem which is used by `requests` or
+# set "verify=False" when using requests
 # see https://github.com/letsencrypt/pebble/tree/master/test/certs
+VERIFY_SSL = False
+
 TEST_IP = "127.0.0.1"
 TEST_PORT = 14000
 
