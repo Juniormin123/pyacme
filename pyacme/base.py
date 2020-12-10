@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, Type, Union, List
+from typing import Dict, Any, Optional, Type, TypeVar, Union, List
 import base64
 import json
 
@@ -149,3 +149,99 @@ class _ACMERespObject:
         return s
     
     __repr__ = __str__
+
+
+TJWS = TypeVar('TJWS', bound=Type[_JWSBase])
+
+
+class _ACMERequestBase:
+
+    def __init__(self, nonce):
+        """nonce should have a string form that is able to update with each
+        reponse recieved from the server"""
+        self.nonce = nonce
+
+    def _request(self, url: str, method: str, jws: _JWSBase, 
+                 headers: Dict[str, Any] = dict()) -> requests.Response:
+        raise NotImplementedError
+
+
+class _AcctActionBase:
+
+    def __init__(self, req_action: _ACMERequestBase):
+        self.req_action = req_action
+    
+    def create_acct(self, 
+                    jwk: _JWKBase, 
+                    contact: List[str], 
+                    jws_type: TJWS) -> requests.Response:
+        raise NotImplementedError
+
+    def query_acct(self, jwk: _JWKBase, jws_type: TJWS) -> requests.Response:
+        raise NotImplementedError
+
+    def update_acct(self, 
+                    acct_obj: _ACMERespObject,
+                    jws_type: TJWS,
+                    **kwargs) -> requests.Response:
+        raise NotImplementedError
+
+    def external_acct_binding(self):
+        raise NotImplementedError
+
+    def acct_key_rollover(self, 
+                          acct_obj: _ACMERespObject,
+                          jwk_new: _JWKBase,
+                          jws_type: TJWS) -> requests.Response:
+        raise NotImplementedError
+
+    def deactivate_acct(self, 
+                        acct_obj: _ACMERespObject, 
+                        jws_type: TJWS) -> requests.Response:
+        raise NotImplementedError
+
+    def new_order(self, 
+                  acct_obj: _ACMERespObject, 
+                  identifiers: List[Dict[str, Any]],
+                  not_before: str,
+                  not_after: str,
+                  jws_type: TJWS) -> requests.Response:
+        raise NotImplementedError
+
+    def post_as_get(self, 
+                    url: str,
+                    acct_obj: _ACMERespObject,
+                    jws_type: TJWS) -> requests.Response:
+        raise NotImplementedError
+
+    def respond_to_challenge(self, 
+                            #  chall_type: str,
+                            #  acct_obj: ACMEAccount,
+                            #  auth_obj: ACMEAuthorization,
+                             chall_obj: _ACMERespObject,
+                            #  jwk: _JWKBase,
+                            #  jws_type: TJWS) -> ACMEChallenge:
+                             jws_type: TJWS) -> requests.Response:
+        raise NotImplementedError
+
+    def deactivate_auth(self, 
+                        # acct_obj: ACMEAccount, 
+                        auth_obj: _ACMERespObject,
+                        # jws_type: TJWS) -> ACMEAuthorization:
+                        jws_type: TJWS) -> requests.Response:
+        raise NotImplementedError
+
+    def finalize_order(self, 
+                    #    acct_obj: ACMEAccount, 
+                       order_obj: _ACMERespObject,
+                       subject_names: Dict[str, str],
+                    #    jws_type: TJWS) -> List[ACMEOrder]:
+                       jws_type: TJWS) -> requests.Response:
+        raise NotImplementedError
+
+    def __str__(self) -> str:
+        s = f'current_nonce: {str(self.req_action.nonce)}'
+        return s
+    
+    def __repr__(self) -> str:
+        return repr(str(self))
