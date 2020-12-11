@@ -56,12 +56,12 @@ class ACMEAccount(_ACMERespObject):
                        jwk: _JWKBase,
                        *,
                        acct_actions: _AcctActionBase,
-                       contacts: List[str]) -> 'ACMEAccount':
+                       contact: List[str]) -> 'ACMEAccount':
         """
         create a new account by given a public key and contact info
         """
         resp = acct_actions.create_acct(
-            jwk, contacts, jwk.related_JWS
+            jwk, contact, jwk.related_JWS
         )
         return cls(resp, acct_actions=acct_actions, jwk=jwk)
     
