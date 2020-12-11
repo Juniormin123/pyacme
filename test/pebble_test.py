@@ -18,6 +18,7 @@ import subprocess
 import unittest
 
 import requests
+from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 
@@ -30,7 +31,7 @@ from pyacme.util import get_keyAuthorization
 from pyacme.jwk import JWKRSA
 from pyacme.jws import JWSRS256
 from pyacme.exceptions import ACMEError
-from pyacme.actions import ACMEAccountActions, ACMECertificateAction
+from pyacme.actions import ACMEAccountActions
 from pyacme.ACMEobj import ACMEAccount, ACMEAuthorization, ACMEOrder
 from pyacme.request import ACMERequestActions, Nonce
 from pyacme.settings import *
@@ -119,7 +120,7 @@ def add_http_01(token: str, jwk: _JWKBase) -> requests.Response:
     return resp
 
 
-def load_test_keys(*key_pair_path) -> List[tuple]:
+def load_test_keys(*key_pair_path: str) -> List[tuple]:
     key_pairs: List[tuple] = []
     for pub_path, priv_path in key_pair_path:
         with open(pub_path, 'rb') as pub_f:
@@ -199,357 +200,298 @@ class ACMERequestActionsTest(unittest.TestCase):
         stop_pebble_docker(PEBBLE_CONTAINER, PEBBLE_CHALLTEST_CONTAINER)
 
 
-class ACMEAccountActionsTest(unittest.TestCase):
+def common_setup(self, create_account = True):
+    run_pebble_docker(str(PEBBLE_DOCKER_FILE))
+    
+    _set_up_rsa(self)
+    self.jws_types = [JWSRS256]
+    self.jwk_list = self.rsa_test['jwk_rsa_list']
+
+    ACMERequestActions.set_directory_url(PEBBLE_TEST)
+    ACMERequestActions.query_dir()
+    self.acct_actions = ACMEAccountActions(ACMERequestActions(Nonce()))
+
+    if create_account:
+        self.acct_list = []
+        for jwk in self.jwk_list:
+            acct = ACMEAccount.init_by_create(
+                jwk=jwk,
+                acct_actions=self.acct_actions,
+                contact=_TEST_CONTACTS
+            )
+            self.acct_list.append(acct)
+
+
+
+class ACMEAccountInitTest(unittest.TestCase):
 
     def setUp(self) -> None:
-        run_pebble_docker(str(PEBBLE_DOCKER_FILE))
-        _set_up_rsa(self)
-
-        # other key type setup
-
-        self.jws_types = [JWSRS256]
-        self.jwk_list = [self.rsa_test['jwk_rsa_list']]    # type: ignore
-
-        # set pebble addr for testing
-        ACMERequestActions.set_directory_url(PEBBLE_TEST)
-        ACMERequestActions.query_dir()
-        self.acct_actions = ACMEAccountActions(ACMERequestActions(Nonce()))
+        common_setup(self, create_account=False)
     
-    def test_new_nonce(self):
-        """get a new nonce, should retry if badNonce error raised"""
-        nonce = self.acct_actions.req_action.new_nonce()
-        self.assertNotEqual(nonce, '')
-    
-    def test_create_acct(self):
-        """test account creation using pebble"""
-        self.acct_actions.req_action.new_nonce()
-        # make sure jws and jwk are paired
-        for jws_type, jwk_list in zip(self.jws_types, self.jwk_list):
-            with self.subTest(jws_type=jws_type, jwk_list=jwk_list):
-                acct = self.acct_actions.create_acct(
-                    jwk=jwk_list[0],
-                    contact=_TEST_CONTACTS,
-                    jws_type=jws_type
+    def test_init_by_create(self):
+        for jwk in self.jwk_list:
+            with self.subTest(jwk=jwk):
+                acct = ACMEAccount.init_by_create(
+                    jwk=jwk,
+                    acct_actions=self.acct_actions,
+                    contact=_TEST_CONTACTS
                 )
-                self.assertIsInstance(acct, ACMEAccount)
-                # new account created, status code 201-created
+                # reponse 201-created if an account is created
                 self.assertEqual(acct._resp.status_code, 201)
-                # required fields check
-                self.assertTrue(hasattr(acct, 'status'))
-                self.assertTrue(hasattr(acct, 'orders'))
-                # values for required field should not be empty
-                self.assertTrue(acct.status)
-                self.assertTrue(acct.orders)
-    
-    def test_query_acct(self):
-        # create a new account so that this test can be run independently
-        self.acct_actions.req_action.new_nonce()
-        for jws_type, jwk_list in zip(self.jws_types, self.jwk_list):
-            with self.subTest(jws_type=jws_type, jwk_list=jwk_list):
-                # use the key_2
-                self.acct_actions.create_acct(
-                    jwk=jwk_list[1],
-                    contact=_TEST_CONTACTS,
-                    jws_type=jws_type
-                )
-                # acct_obj returned from query
-                acct = self.acct_actions.query_acct(jwk_list[1], jws_type)
-                self.assertIsInstance(acct, ACMEAccount)
-                # existed account query, status code 200-OK
-                self.assertEqual(acct._resp.status_code, 200)
-    
-    def test_update_acct(self):
-        restart_pebble_docker_specific()
-        self.acct_actions.req_action.new_nonce()
-        for jws_type, jwk_list in zip(self.jws_types, self.jwk_list):
-            with self.subTest(jws_type=jws_type, jwk_list=jwk_list):
-                acct = self.acct_actions.create_acct(
-                    jwk=jwk_list[0],
-                    contact=_TEST_CONTACTS,
-                    jws_type=jws_type
-                )
-                acct_updated = self.acct_actions.update_acct(
-                    acct_obj=acct,
-                    jws_type=jws_type,
-                    contact=_TEST_CONTACTS_MOD
-                )
-                # check whether same object updated
-                self.assertIs(acct, acct_updated)
-                # expect 200-OK and return acct object
-                # also test for whether acct_obj itself is updated, if not, 
-                # the status code is still 201 from create_acct(), which is not
-                # intended here
-                self.assertEqual(acct_updated._resp.status_code, 200)
-                self.assertEqual(acct._resp.status_code, 200)
-                # check whether contact info is updated
-                self.assertCountEqual(acct.contact, _TEST_CONTACTS_MOD)
-    
-    @unittest.skip('not implemented for now')
-    def test_external_acct_binding(self):
-        pass
 
-    def test_acct_key_rollover(self):
-        restart_pebble_docker_specific()
-        self.acct_actions.req_action.new_nonce()
-        for jws_type, jwk_list in zip(self.jws_types, self.jwk_list):
-            with self.subTest(jws_type=jws_type, jwk_list=jwk_list):
-                acct = self.acct_actions.create_acct(
-                    jwk=jwk_list[0],
-                    contact=_TEST_CONTACTS,
-                    jws_type=jws_type
+    def test_init_by_query(self):
+        for jwk in self.jwk_list:
+            with self.subTest(jwk=jwk):
+                ACMEAccount.init_by_create(
+                    jwk=jwk,
+                    acct_actions=self.acct_actions,
+                    contact=_TEST_CONTACTS
                 )
-                acct_key_rolled = self.acct_actions.acct_key_rollover(
-                    acct_obj=acct,
-                    # roll over the key pair 2
-                    jwk_new=jwk_list[1],
-                    jws_type=jws_type
+                acct = ACMEAccount.init_by_query(
+                    jwk=jwk,
+                    acct_actions=self.acct_actions
                 )
-                # check whether same object updated
-                self.assertIs(acct, acct_key_rolled)
-                # expect 200-OK and return updated acct object
-                self.assertEqual(acct_key_rolled._resp.status_code, 200)
+                # reponse 200-OK if an account is returned successfully
                 self.assertEqual(acct._resp.status_code, 200)
-                # check new key status
-                self.assertEqual(acct.jwk_obj.n, jwk_list[1].n)
-                # use the old key should raise error now
-                self.assertRaises(
-                    ACMEError,
-                    self.acct_actions.query_acct,
-                    jwk_list[0], 
-                    jws_type
-                )
-    
-    def test_deactivate_acct(self):
-        restart_pebble_docker_specific()
-        self.acct_actions.req_action.new_nonce()
-        for jws_type, jwk_list in zip(self.jws_types, self.jwk_list):
-            with self.subTest(jws_type=jws_type, jwk_list=jwk_list):
-                acct = self.acct_actions.create_acct(
-                    jwk=jwk_list[0],
-                    contact=_TEST_CONTACTS,
-                    jws_type=jws_type
-                )
-                acct_deactivated = self.acct_actions.deactivate_acct(
-                    acct_obj=acct,
-                    jws_type=jws_type
-                )
-                # check whether same object updated
-                self.assertIs(acct, acct_deactivated)
-                # expect 200-OK and return deactivated acct object
-                self.assertEqual(acct_deactivated._resp.status_code, 200)
-                self.assertEqual(acct._resp.status_code, 200)
-                # POST or POST-as-GET to a deactivated account will have error
-                self.assertRaises(
-                    ACMEError,
-                    self.acct_actions.query_acct,
-                    jwk_list[0],
-                    jws_type
-                )
     
     def tearDown(self) -> None:
         stop_pebble_docker(PEBBLE_CONTAINER, PEBBLE_CHALLTEST_CONTAINER)
-    
-
-def _cert_actions(self, 
-                  jws_type: _JWSBase, 
-                  jwk_list: List[_JWKBase],
-                  jwk_index: int = 0,
-                  new_order: bool = False,
-                  identifier_auth: bool = False) -> Tuple[
-                      ACMEAccount,
-                      Optional[ACMEOrder],
-                      Optional[List[ACMEAuthorization]]
-                  ]:
-    """
-    procedure of creating acct, applying for new order and querying for auth
-    """
-    # create an account
-    order = None
-    auth_list = []
-    acct = self.acct_actions.create_acct(
-        jwk=jwk_list[jwk_index],
-        contact=_TEST_CONTACTS,
-        jws_type=jws_type
-    )
-    if new_order:
-        self.cert_actions.req_action.new_nonce()
-        order = self.cert_actions.new_order(
-            acct_obj=acct,
-            identifiers=self.test_identifiers,
-            not_before='',
-            not_after='',
-            jws_type=jws_type
-        )
-    if new_order and identifier_auth:
-        auth_list = self.cert_actions.identifier_auth(
-            acct_obj=acct,
-            jws_type=jws_type
-        )
-    return acct, order, auth_list
 
 
-class ACMECertificateActionTest(unittest.TestCase):
+class ACMEAccountActionsTest(unittest.TestCase):
 
     def setUp(self) -> None:
-        run_pebble_docker(str(PEBBLE_DOCKER_FILE))
-
-        _set_up_rsa(self)
-
-        self.jws_types = [JWSRS256]
-        self.jwk_list = [self.rsa_test['jwk_rsa_list']]    # type: ignore
-
-        self.test_identifiers = [{'type': 'dns', 'value': 'test.local'}]
-
-        # set pebble addr for testing
-        ACMERequestActions.set_directory_url(PEBBLE_TEST)
-        ACMERequestActions.query_dir()
-        self.cert_actions = ACMECertificateAction(ACMERequestActions(Nonce()))
-        self.acct_actions = ACMEAccountActions(ACMERequestActions(Nonce()))
+        common_setup(self, create_account=True)
+        self.acct_list: List[ACMEAccount]
+        # generate new key for account_key_rollover
+        new_priv = rsa.generate_private_key(65537, 2048, default_backend())
+        new_pub = new_priv.public_key()
+        self.jwk_new = JWKRSA(
+            priv_key=new_priv,
+            n=new_pub.public_numbers().n,
+            e=new_pub.public_numbers().e
+        )
     
-    def test_new_order(self):
-        """
-        basic test creating new order, no `not_before`, `not_after` given, and
-        only one `identifier` is set.
-        """
-        restart_pebble_docker_specific()
-        self.acct_actions.req_action.new_nonce()
-        # make sure jws and jwk are paired
-        for jws_type, jwk_list in zip(self.jws_types, self.jwk_list):
-            with self.subTest(jws_type=jws_type, jwk_list=jwk_list):
-                # create an account
-                acct, order, _ = _cert_actions(
-                    self, jws_type, jwk_list, 0, True
-                )
-                # check status code, expect 201-created
-                self.assertEqual(order._resp.status_code, 201)
-                # check returned order object attr
-                self.assertTrue(hasattr(order, 'status'))
-                # acct obj should update itself with the returned order obj
-                self.assertIs(acct.order_obj, order)
-                # check whether order_location is empty
-                self.assertTrue(acct.order_obj.order_location)
+    def test_poll_acct_state(self):
+        for acct in self.acct_list:
+            acct.poll_acct_state()
+            # expect 200-OK on success post-as-get poll
+            self.assertEqual(acct._resp.status_code, 200)
+    
+    def test_update_account(self):
+        for acct in self.acct_list:
+            acct.update_account(contact=_TEST_CONTACTS_MOD)
+            acct.poll_acct_state()
 
-    def test_identifier_auth(self):
-        """test query for auth obj, only one auth in this test"""
-        restart_pebble_docker_specific()
-        self.acct_actions.req_action.new_nonce()
-        # make sure jws and jwk are paired
-        for jws_type, jwk_list in zip(self.jws_types, self.jwk_list):
-            with self.subTest(jws_type=jws_type, jwk_list=jwk_list):
-                # create an account
-                acct, order, auth_list = _cert_actions(
-                    self, jws_type, jwk_list, 0, True, True
-                )
-                # check status code, expect 200-OK
-                for auth in auth_list:
-                    self.assertEqual(auth._resp.status_code, 200)
-                    # check attrs of auth_obj
-                    self.assertTrue(hasattr(auth, 'status'))
-                    self.assertTrue(hasattr(auth, 'challenges'))
-                    # updated ACMEChallenge objects
-                    self.assertTrue(hasattr(auth, 'chall_objs'))
-                    # chall_objs should not be empty
-                    self.assertTrue(acct.auth_objs[0].chall_objs)
-                    # check existence of challenges
-                # check whether acct obj update with auth_list
-                self.assertIs(acct.auth_objs, auth_list)
+            # successful update will return 200-OK
+            self.assertEqual(acct._resp.status_code, 200)
+            self.assertCountEqual(_TEST_CONTACTS_MOD, acct.contact)
+    
+    def test_account_key_rollover(self):
+        acct = self.acct_list[0]
+        jwk_old = acct.jwk_obj
+        acct.account_key_rollover(self.jwk_new)
 
-    def test_respond_to_challenge(self):
-        """also test generation of keyAuthrization thumbprint"""
-        restart_pebble_docker_specific()
-        self.acct_actions.req_action.new_nonce()
-        # make sure jws and jwk are paired
-        for jws_type, jwk_list in zip(self.jws_types, self.jwk_list):
-            with self.subTest(jws_type=jws_type, jwk_list=jwk_list):
-                acct, order, auth_list = _cert_actions(
-                    self, jws_type, jwk_list, 0, True, True
-                )
-                # prepare for challenge
-                for chall_obj in acct.auth_objs[0].chall_objs:
-                    if chall_obj.type == 'http-01':
-                        token = chall_obj.token
-                        add_http_01(token, jwk_list[0])
+        # successful rollover will return 200-OK
+        self.assertEqual(acct._resp.status_code, 200)
+        self.assertIs(acct.jwk_obj, self.jwk_new)
 
-                # signal server for challenge is prepared
-                chall = self.cert_actions.respond_to_challenge(
-                    chall_type='http',
-                    acct_obj=acct,
-                    auth_obj=acct.auth_objs[0],
-                    jws_type=jws_type
-                )
-                # check return status, expect 200-OK if server is commencing
-                # challenge request
-                self.assertEqual(chall._resp.status_code, 200)
+        acct.deactivate()
+        with self.assertRaises(ACMEError):
+            # ensure that the new jwk is used in server
+            ACMEAccount.init_by_create(
+                jwk=self.jwk_new,
+                acct_actions=self.acct_actions,
+                contact=_TEST_CONTACTS
+            )
+    
+    def tearDown(self) -> None:
+        stop_pebble_docker(PEBBLE_CONTAINER, PEBBLE_CHALLTEST_CONTAINER)
 
-                # wait for some time then poll the status of auth_obj, 
-                # status should become "valid"
-                time.sleep(8)
-                responded = self.cert_actions.identifier_auth(acct, jws_type)
-                # auth_objs in acct should be updated
-                self.assertEqual(acct.auth_objs[0].status, 'valid')
+
+class ACMEAcountDeactivationTest(unittest.TestCase):
+
+    def setUp(self) -> None:
+        common_setup(self, create_account=True)
+
+    def test_deactivate(self):
+        for acct in self.acct_list:
+            acct.deactivate()
+
+            # successful deactivation will return 200-OK
+            self.assertEqual(acct._resp.status_code, 200)
+            self.assertEqual(acct.status, 'deactivated')
+            # try to post or post-as-get to a deactivated account will 
+            # have 401-Unauthorized
+            with self.assertRaises(ACMEError) as caught:
+                acct.poll_acct_state()
+                self.assertEqual(caught.exception.status_code, 401)
+    
+    def tearDown(self) -> None:
+        stop_pebble_docker(PEBBLE_CONTAINER, PEBBLE_CHALLTEST_CONTAINER)
+
+
+class ACMEOrderNewTest(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self.acct_list: List[ACMEAccount]
+        common_setup(self, create_account=True)
+        self.idf_list = [f'test-{i}.local' for i in range(len(self.acct_list))]
+        self.idf_multi_list = [
+            [f'test-{i}.local', f'test-{i}-m.local'] 
+            for i in range(len(self.acct_list))
+        ]
+    
+    def test_new_order_single_idf(self):
+        """test new order with only one identifier"""
+        for acct, idf in zip(self.acct_list, self.idf_list):
+            order_obj = acct.new_order(identifiers=[idf])
+
+            # successful order creation will return 201-created
+            self.assertEqual(acct._resp.status_code, 201)
+            self.assertEqual(len(acct.order_objs), 1)
+            self.assertIs(order_obj, acct.order_objs[0])
+            self.assertCountEqual([idf], order_obj.identifier_values)
+    
+    def test_new_order_multi_idf(self):
+        """test new order with more than one identifiers"""
+        for acct, idfs in zip(self.acct_list, self.idf_multi_list):
+            order_obj = acct.new_order(identifiers=idfs)
+
+            # successful order creation will return 201-created
+            self.assertEqual(acct._resp.status_code, 201)
+            self.assertCountEqual(idfs, order_obj.identifier_values)
+
+    def tearDown(self) -> None:
+        stop_pebble_docker(PEBBLE_CONTAINER, PEBBLE_CHALLTEST_CONTAINER)
+
+
+class ACMEOrderActionTest(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self.acct_list: List[ACMEAccount]
+        common_setup(self, create_account=True)
+        self.idf_list = [f'test-{i}.local' for i in range(len(self.acct_list))]
+        # create order_objs for later actions, one order for each acct
+        self.order_objs: List[ACMEOrder] = []
+        for acct, idf in zip(self.acct_list, self.idf_list):
+            order_obj = acct.new_order(identifiers=[idf])
+            self.order_objs.append(order_obj)
+
+    def test_acct_get_orders(self):
+        loc_from_get: List[str] = []
+        # order_objs from new_order()
+        loc_from_new = [o.order_location for o in self.order_objs]
+        for acct in self.acct_list:
+            rtn_order_objs = acct.get_orders()
+            # order_objs from get_orders()
+            loc_from_get += [o.order_location for o in rtn_order_objs]
+            
+            self.assertEqual(len(acct.order_objs), 1)
+
+        self.assertCountEqual(loc_from_get, loc_from_new)
+    
+    def test_poll_order_state(self):
+        for order_obj in self.order_objs:
+            order_obj.poll_order_state()
+
+            # post-as-get to an order's location url
+            self.assertEqual(order_obj._resp.status_code, 200)
+
+    
+    def tearDown(self) -> None:
+        stop_pebble_docker(PEBBLE_CONTAINER, PEBBLE_CHALLTEST_CONTAINER)
+
+
+class ACMEAuthorizationTest(unittest.TestCase):
+
+    def setUp(self) -> None:
+        common_setup(self, create_account=True)
+        self.idf_multi_list = [
+            [f'test-{i}.local', f'test-{i}-m.local'] 
+            for i in range(len(self.acct_list))
+        ]
+        # each auth_obj represents one identifier in an order
+        self.order_objs: List[ACMEOrder] = []
+        for acct, idf_multi in zip(self.acct_list, self.idf_multi_list):
+            order_obj = acct.new_order(identifiers=idf_multi)
+            self.order_objs.append(order_obj)
+    
+    def test_poll_auth_state(self):
+        for order_obj in self.order_objs:
+            # at this moment each order has 2 identifiers, means 2 auth_obj
+            self.assertEqual(len(order_obj.auth_objs), 2)
+
+            auth_obj = order_obj.auth_objs[0]
+            auth_obj.poll_auth_state()
+
+            # post-as-get to auth location url
+            self.assertEqual(auth_obj._resp.status_code, 200)
+
+            # poll order, auth state will be implicitly updated
+            order_obj.poll_order_state()
+            self.assertEqual(len(order_obj.auth_objs), 2)
     
     def test_deactivate_auth(self):
-        restart_pebble_docker_specific()
-        self.acct_actions.req_action.new_nonce()
-        # make sure jws and jwk are paired
-        for jws_type, jwk_list in zip(self.jws_types, self.jwk_list):
-            with self.subTest(jws_type=jws_type, jwk_list=jwk_list):
-                acct, order, auth_list = _cert_actions(
-                    self, jws_type, jwk_list, 0, True, True
-                )
-                # deactivate one auth object from acct_obj
-                auth_deact = self.cert_actions.deactivate_auth(
-                    acct_obj=acct,
-                    auth_obj=acct.auth_objs[0],
-                    jws_type=jws_type
-                )
-                # check return status, expect 200-OK
-                self.assertEqual(auth_deact._resp.status_code, 200)
-                # check returned auth_obj status
-                self.assertEqual(auth_deact.status, 'deactivated')
+        """deactivate one of the auth_obj for each order"""
+        for order_obj in self.order_objs:
+            auth_to_deactivate = order_obj.auth_objs[1]
+            auth_to_deactivate.deactivate_auth()
 
-                # query auth for acct_obj
-                auth_requery = self.cert_actions.identifier_auth(
-                    acct_obj=acct,
-                    jws_type=jws_type
-                )
-                # the auth object should be updated and with status deactivated
-                # in this test only one auth_obj should exist
-                self.assertEqual(auth_requery[0].status, 'deactivated')
+            # successful deactivation will return 200-OK
+            self.assertEqual(auth_to_deactivate._resp.status_code, 200)
+            self.assertEqual(auth_to_deactivate.status, "deactivated")
+
+            # now the order state will also become "deactivated"
+            order_obj.poll_order_state()
+            self.assertEqual(order_obj.status, "deactivated")
     
-    def test_finalize_order(self):
-        restart_pebble_docker_specific()
-        self.acct_actions.req_action.new_nonce()
-        # make sure jws and jwk are paired
-        for jws_type, jwk_list in zip(self.jws_types, self.jwk_list):
-            with self.subTest(jws_type=jws_type, jwk_list=jwk_list):
-                acct, order, auth_list = _cert_actions(
-                    self, jws_type, jwk_list, 0, True, True
-                )
-                for chall_obj in acct.auth_objs[0].chall_objs:
-                    if chall_obj.type == 'http-01':
-                        token = chall_obj.token
-                        add_http_01(token, jwk_list[0])
+    def tearDown(self) -> None:
+        stop_pebble_docker(PEBBLE_CONTAINER, PEBBLE_CHALLTEST_CONTAINER)
 
-                chall = self.cert_actions.respond_to_challenge(
-                    chall_type='http',
-                    acct_obj=acct,
-                    auth_obj=acct.auth_objs[0],
-                    jws_type=jws_type
-                )
-                # wait for order to be ready, then finalize
-                time.sleep(8)
-                # finalize order, with test subject names for csr
-                order_obj_list = self.cert_actions.finalize_order(
-                    acct_obj=acct,
-                    subject_names={'C': 'CN', 'O': 'test organization'},
-                    jws_type=jws_type
-                )
-                for order_obj in order_obj_list:
-                    # check return status, expect 200-OK
-                    self.assertEqual(order_obj._resp.status_code, 200)
-                    # check order status
-                    self.assertEqual(order_obj.status, 'valid')
+
+class ACMEChallengeTest(unittest.TestCase):
+
+    def setUp(self) -> None:
+        common_setup(self, create_account=True)
+        self.idf_multi_list = [
+            [f'test-{i}.local', f'test-{i}-m.local'] 
+            for i in range(len(self.acct_list))
+        ]
+        # each auth_obj represents one identifier in an order
+        self.order_objs: List[ACMEOrder] = []
+        for acct, idf_multi in zip(self.acct_list, self.idf_multi_list):
+            order_obj = acct.new_order(identifiers=idf_multi)
+            self.order_objs.append(order_obj)
+    
+    def test_respond(self):
+        for order_obj in self.order_objs:
+            order_obj.poll_order_state()
+            for auth_obj in order_obj.auth_objs:
+                # respond to http challenge
+                jwk = order_obj.related_acct.jwk_obj
+
+                # pebble challtest service
+                add_http_01(auth_obj.chall_http.token, jwk)
+
+                auth_obj.chall_http.respond()
+
+                # poll immediately should have "pending" state
+                auth_obj.poll_auth_state()
+                self.assertEqual(auth_obj.status, 'pending')
+
+                # wait for challenges to complete
+                time.sleep(5)
+                auth_obj.poll_auth_state()
+                status = auth_obj.chall_http.status
+
+                # chall object state should become "valid"
+                self.assertEqual(status, 'valid')
+                self.assertEqual(auth_obj.status, 'valid')
+            
+            # once all auth valid, order state become "ready"
+            order_obj.poll_order_state()
+            self.assertEqual(order_obj.status, 'ready')
 
     def tearDown(self) -> None:
         stop_pebble_docker(PEBBLE_CONTAINER, PEBBLE_CHALLTEST_CONTAINER)
