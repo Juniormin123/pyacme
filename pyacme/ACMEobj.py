@@ -36,6 +36,11 @@ class ACMEAccount(_ACMERespObject):
 
     def __init__(self, resp: requests.Response, *args, **kwargs):
         self._order_objs: List['ACMEOrder']
+        self.status: str
+        self.contact: List[str]
+        self.termsOfServiceAgreed: str
+        self.externalAccountBinding: Dict[str, str]
+        self.orders: str
         super().__init__(resp, *args, **kwargs)
 
     @classmethod
@@ -128,7 +133,6 @@ class ACMEAccount(_ACMERespObject):
             return resp
 
         # get Orders List object by sending post-as-get to "orders" url
-        self.orders: str
         orders_resp = _post_as_get(self.orders)
         url_poll: List[str] = json.loads(orders_resp.text)['orders']
 
@@ -263,6 +267,18 @@ class ACMEOrder(_ACMERespObject):
     see https://tools.ietf.org/html/rfc8555#section-7.1.3
     """
 
+    def __init__(self, resp: requests.Response, *args, **kwargs):
+        self.status: str
+        self.expires: str
+        self.notBefore: str
+        self.notAfter: str
+        self.error: str
+        self.identifiers: List[Dict[str, str]]
+        self.authorizations: List[str]
+        self.finalize: str
+        self.certificate: str
+        super().__init__(resp, *args, **kwargs)
+
     def poll_order_state(self) -> None:
         """
         use POST-as-GET to poll and update the `ACMEOrder` object, lastest
@@ -277,7 +293,7 @@ class ACMEOrder(_ACMERespObject):
         )
         self._update_from_resp(resp)
     
-    def finalize(self, **subject_names) -> None:
+    def finalize_order(self, **subject_names) -> None:
         """
         finalize the `ACMEOrder` order by sending to its `"finalize"` url
         """
@@ -321,14 +337,12 @@ class ACMEOrder(_ACMERespObject):
 
         self.__dict__.update(self._raw_resp_body)
         
-        self.identifiers: List[Dict[str, str]]
         self.identifier_values = [i['value'] for i in self.identifiers]
 
         self._fetch_auth()
     
     def _fetch_auth(self) -> None:
         act = self.related_acct.acct_actions
-        self.authorizations: List[str]
         self._auth_objs: List['ACMEAuthorization'] = []
         for auth_url in self.authorizations:
             resp = act.post_as_get(
@@ -371,9 +385,13 @@ class ACMEAuthorization(_ACMERespObject):
 
     see https://tools.ietf.org/html/rfc8555#section-7.1.4
     """
-    # def __init__(self, resp: requests.Response, *args, **kwargs) -> None:
-    #     super().__init__(resp, *args, **kwargs)
-    #     self._update_chall()
+    def __init__(self, resp: requests.Response, *args, **kwargs) -> None:
+        self.stats: str
+        self.expires: str
+        self.identifier: Dict[str, str]
+        self.challenges: List[str]
+        self.wildcard: str
+        super().__init__(resp, *args, **kwargs)
 
     def poll_auth_state(self) -> None:
         """
@@ -432,7 +450,6 @@ class ACMEAuthorization(_ACMERespObject):
 
         self.__dict__.update(self._raw_resp_body)
 
-        self.identifier: Dict[str, str]
         self.identifier_value = self.identifier['value']
 
         self._set_chall_objs()
@@ -494,6 +511,12 @@ class ACMEChallenge(_ACMERespObject):
         # https://tools.ietf.org/html/rfc8555#section-7.5.1 p55
         # chall object may be updated by server and returned as response when
         # client responded to a Challenge;
+        self.type: str
+        self.url: str
+        self.status: str
+        self.token: str
+        self.validated: str
+        self.error: str
         if isinstance(resp, requests.Response):
             self._set_initial(resp)
             self._update_attr(resp, **kwargs)
