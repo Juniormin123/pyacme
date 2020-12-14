@@ -307,6 +307,32 @@ class ACMEOrder(_ACMERespObject):
         )
         self._update_from_resp(resp)
 
+    def download_certificate(self, cert_fmt = 'pem-certificate-chain') -> str:
+        """
+        download certificate for an valid order.
+        `cer_fmt` can be one of the following:
+         * `pem-certificate-chain`
+         * `pkix-cert`
+         * `pkcs7-mime`
+
+        see https://tools.ietf.org/html/rfc8555#section-7.4.2
+        """
+        cert_str = ''
+        header = {'Accept': f'application/{cert_fmt}'}
+        if cert_fmt == 'pem-certificate-chain':
+            resp = self._related_acct.acct_actions.post_as_get(
+                url=self.certificate,
+                acct_obj=self.related_acct,
+                jws_type=self.related_acct.jwk_obj.related_JWS
+            )
+            cert_str = resp.text
+        elif cert_fmt == 'pkix-cert':
+            pass
+        elif cert_fmt == 'pkcs7-mime':
+            pass
+        return cert_str
+
+
     def _update_attr(self, resp: requests.Response, *args, **kwargs) -> None:
         # field and type defined by RFC8555
         attrs = [
