@@ -299,7 +299,12 @@ class ACMEOrder(_ACMERespObject):
         """
         act = self.related_acct.acct_actions
         jws_type = self.related_acct.jwk_obj.related_JWS
-        resp = act.finalize_order(self, subject_names, jws_type=jws_type)
+        resp = act.finalize_order(
+            self, 
+            domains=self.identifier_values,
+            subject_names=subject_names,
+            jws_type=jws_type
+        )
         self._update_from_resp(resp)
 
     def _update_attr(self, resp: requests.Response, *args, **kwargs) -> None:
@@ -342,6 +347,7 @@ class ACMEOrder(_ACMERespObject):
         self._fetch_auth()
     
     def _fetch_auth(self) -> None:
+        """when updating order, auth_objs of this order will all be updated"""
         act = self.related_acct.acct_actions
         self._auth_objs: List['ACMEAuthorization'] = []
         for auth_url in self.authorizations:

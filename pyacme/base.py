@@ -234,6 +234,7 @@ class _AcctActionBase:
     def finalize_order(self, 
                     #    acct_obj: ACMEAccount, 
                        order_obj: _ACMERespObject,
+                       domains: List[str],
                        subject_names: Dict[str, str],
                     #    jws_type: TJWS) -> List[ACMEOrder]:
                        jws_type: TJWS) -> requests.Response:

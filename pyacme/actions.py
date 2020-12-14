@@ -411,6 +411,7 @@ class ACMEAccountActions(_AcctActionBase):
     def finalize_order(self, 
                     #    acct_obj: ACMEAccount, 
                        order_obj: ACMEOrder,
+                       domains: List[str],
                        subject_names: Dict[str, str],
                     #    jws_type: TJWS) -> List[ACMEOrder]:
                        jws_type: TJWS) -> requests.Response:
@@ -427,7 +428,7 @@ class ACMEAccountActions(_AcctActionBase):
         csr_der_output = parse_csr(
             privkey_path=order_obj.related_acct.jwk_obj.priv_key_path,
             # TODO figure out how this work
-            CN=order_obj.identifier_values,
+            domains=domains,
             **subject_names
         )
         csr_der_b = base64.urlsafe_b64encode(csr_der_output).strip(b'=')
@@ -437,12 +438,12 @@ class ACMEAccountActions(_AcctActionBase):
             payload={
                 'csr': csr_der_b.decode('utf-8'),
             },
-            jwk=order_obj.relate_acct_.jwk_obj,
+            jwk=order_obj.related_acct.jwk_obj,
             kid=order_obj.related_acct.acct_location
         )
         jws.sign()
         resp = self.req_action._request(
-            url=order_obj.related_acct.order_obj.finalize,
+            url=order_obj.finalize,
             method='post',
             jws=jws
         )

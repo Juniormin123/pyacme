@@ -4,7 +4,9 @@ import hashlib
 import json
 from typing import List
 
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.backends import default_backend
 
 from pyacme.base import _JWKBase
 
@@ -24,12 +26,13 @@ def get_keyAuthorization(token: str, jwk: _JWKBase) -> str:
 
 
 def parse_csr(privkey_path: str, 
-              CN: str, 
+              domains: List[str], 
               extra: List[str] = [], 
               **subjects: str) -> bytes:
     """
-    subject names for `openssl req`, 
-    `CN` is required
+    `domains` will be added to csr using `-addtext` option of openssl, 
+    other subject names for `openssl req` list as below
+
      * C = Country, like GB;
      * ST = State or Province
      * L  = Locality
@@ -42,13 +45,31 @@ def parse_csr(privkey_path: str,
         names = '/' + '/'.join([f'{k}={v}' for k, v in subjects.items()])
     else:
         names = ''
-    subj = f'/CN={CN}' + names
+    altnames = 'subjectAltName=' + ','.join([f'DNS:{d}' for d in domains])
+    # TODO figure out how to add CN with multiple domains
+    subj = f'/CN={domains[0]}' + names
+    # private key that is different from the account private key should be used
+    csr_priv_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048,
+        backend=default_backend()
+    )
+    # TODO proper way to store generated csr private key
+    csr_priv_key_b = csr_priv_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+    with open('csr_privkey.pem', 'wb') as f:
+        f.write(csr_priv_key_b)
     output_p = subprocess.run(
         [
             'openssl', 'req', '-new', 
-            '-key', privkey_path,
+            # '-key', privkey_path,
+            '-key', 'csr_privkey.pem',
             '-outform', 'DER', 
             '-subj', subj,
+            '-addext', altnames,
             *extra
         ],
         capture_output=True,
