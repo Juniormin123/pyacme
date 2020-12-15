@@ -514,13 +514,15 @@ class ACMEOrderCertificateTest(unittest.TestCase):
             ]
         )
 
+        self.csr_privkey = generate_rsa_privkey(_CERT_DIR)
+
         self.idf_multi_list = [
             [f'test-{i}.local', f'test-{i}-m.local'] 
             for i in range(len(self.acct_list))
         ]
         self.acct_list: List[ACMEAccount]
         self.order_objs: List[ACMEOrder] = []
-        i = 0
+        # i = 0
         for acct, idf_multi in zip(self.acct_list, self.idf_multi_list):
             order_obj = acct.new_order(identifiers=idf_multi)
             
@@ -534,17 +536,22 @@ class ACMEOrderCertificateTest(unittest.TestCase):
             self.order_objs.append(order_obj)
 
             # create path for each order's cert download
-            Path(_CERT_DIR/f'order_{i}').mkdir(parents=True, exist_ok=True)
-            i += 1
+            # Path(_CERT_DIR/f'order_{i}').mkdir(parents=True, exist_ok=True)
+            # i += 1
     
-    def test_download_cert(self):
-        """test for order finalization, then cert download"""
+    def _finalize_and_download_cert(self, engine: str):
         for i, order_obj in enumerate(self.order_objs):
             # only in "ready" state can an order be finalized
             self.assertEqual(order_obj.status, 'ready')
-            generate_rsa_privkey(_CERT_DIR)
+            if engine == 'cryptography':
+                privkey = self.csr_privkey
+            elif engine == 'openssl':
+                privkey = f'{_CERT_DIR/"certkey.key"!s}'
+            else:
+                raise ValueError
             order_obj.finalize_order(
-                f'{_CERT_DIR/"certkey.key"!s}',
+                privkey=privkey,
+                engine=engine,
                 emailAddress='email@address.test',
                 C='CN',
                 ST='test ST',
@@ -559,12 +566,13 @@ class ACMEOrderCertificateTest(unittest.TestCase):
             self.assertEqual(order_obj.status, 'valid')
 
             # download cert to indexed dir
-            path = _CERT_DIR / f'order_{i}'
+            path = _CERT_DIR / f'order_{i}_{engine}'
+            path.mkdir(exist_ok=True)
             cert_resp = order_obj.download_certificate(f'{path!s}')
             self.assertEqual(cert_resp.status_code, 200)
 
-            cert_path = _CERT_DIR / f'order_{i}' / 'cert.pem'
-            chain_path = _CERT_DIR / f'order_{i}' / 'chain.pem'
+            cert_path = _CERT_DIR / f'order_{i}_{engine}' / 'cert.pem'
+            chain_path = _CERT_DIR / f'order_{i}_{engine}' / 'chain.pem'
 
             # openssl verify
             subprocess.run(
@@ -575,6 +583,14 @@ class ACMEOrderCertificateTest(unittest.TestCase):
                     str(cert_path)
                 ]
             )
+
+    def test_download_cert_openssl_csr(self):
+        """test for order finalization, then cert download", use openssl"""
+        self._finalize_and_download_cert('openssl')
+
+    def test_download_cert_cryptography_csr(self):
+        """test for order finalization, then cert download, use cryptography"""
+        self._finalize_and_download_cert('cryptography')
     
     def tearDown(self) -> None:
         stop_pebble_docker(PEBBLE_CONTAINER, PEBBLE_CHALLTEST_CONTAINER)
