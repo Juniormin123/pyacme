@@ -27,7 +27,7 @@ import sys
 sys.path.append(str(Path(__file__).parents[1].absolute()))
 
 from pyacme.base import _JWKBase, _JWSBase
-from pyacme.util import get_keyAuthorization
+from pyacme.util import get_keyAuthorization, generate_rsa_privkey
 from pyacme.jwk import JWKRSA
 from pyacme.jws import JWSRS256
 from pyacme.exceptions import ACMEError
@@ -43,6 +43,9 @@ _RSA_PUB_1 = _BASE / 'test' / 'test_pubkey.pem'
 _RSA_PRIV_1 = _BASE / 'test' / 'test_privkey.pem'
 _RSA_PUB_2 = _BASE / 'test' / 'test_pubkey_2.pem'
 _RSA_PRIV_2 = _BASE / 'test' / 'test_privkey_2.pem'
+
+_CERT_DIR = _BASE / 'test' / '.cert_files'
+_CERT_DIR.mkdir(parents=True, exist_ok=True)
 
 _TEST_CONTACTS = ['mailto:min641366609@live.com']
 _TEST_CONTACTS_MOD = ['mailto:calvin.cheng@synergyfutures.com']
@@ -495,3 +498,84 @@ class ACMEChallengeTest(unittest.TestCase):
 
     def tearDown(self) -> None:
         stop_pebble_docker(PEBBLE_CONTAINER, PEBBLE_CHALLTEST_CONTAINER)
+
+
+class ACMEOrderCertificateTest(unittest.TestCase):
+
+    def setUp(self) -> None:
+        common_setup(self, create_account=True)
+        # download pebble root CA, this CA will be recreated on each reboot
+        subprocess.run(
+            [
+                'wget', 'https://localhost:15000/roots/0', 
+                '--no-check-certificate',
+                '-O', f'{_CERT_DIR/"pebble-root-cert.pem"!s}',
+                '--quiet'
+            ]
+        )
+
+        self.idf_multi_list = [
+            [f'test-{i}.local', f'test-{i}-m.local'] 
+            for i in range(len(self.acct_list))
+        ]
+        self.acct_list: List[ACMEAccount]
+        self.order_objs: List[ACMEOrder] = []
+        i = 0
+        for acct, idf_multi in zip(self.acct_list, self.idf_multi_list):
+            order_obj = acct.new_order(identifiers=idf_multi)
+            
+            # complete auth respond
+            for auth_obj in order_obj.auth_objs:
+                add_http_01(auth_obj.chall_http.token, acct.jwk_obj)
+                auth_obj.chall_http.respond()
+            time.sleep(4)
+            order_obj.poll_order_state()
+
+            self.order_objs.append(order_obj)
+
+            # create path for each order's cert download
+            Path(_CERT_DIR/f'order_{i}').mkdir(parents=True, exist_ok=True)
+            i += 1
+    
+    def test_download_cert(self):
+        """test for order finalization, then cert download"""
+        for i, order_obj in enumerate(self.order_objs):
+            # only in "ready" state can an order be finalized
+            self.assertEqual(order_obj.status, 'ready')
+            generate_rsa_privkey(_CERT_DIR)
+            order_obj.finalize_order(
+                f'{_CERT_DIR/"certkey.key"!s}',
+                emailAddress='email@address.test',
+                C='CN',
+                ST='test ST',
+                L='test L',
+                O='test org',
+                OU='test OU'
+            )
+
+            time.sleep(3)
+            order_obj.poll_order_state()
+            # after finalized, state become "valid", cannot be finalized again
+            self.assertEqual(order_obj.status, 'valid')
+
+            # download cert to indexed dir
+            path = _CERT_DIR / f'order_{i}'
+            cert_resp = order_obj.download_certificate(f'{path!s}')
+            self.assertEqual(cert_resp.status_code, 200)
+
+            cert_path = _CERT_DIR / f'order_{i}' / 'cert.pem'
+            chain_path = _CERT_DIR / f'order_{i}' / 'chain.pem'
+
+            # openssl verify
+            subprocess.run(
+                [
+                    'openssl', 'verify',
+                    '-CAfile', f'{_CERT_DIR/"pebble-root-cert.pem"!s}',
+                    '-untrusted', str(chain_path),
+                    str(cert_path)
+                ]
+            )
+    
+    def tearDown(self) -> None:
+        stop_pebble_docker(PEBBLE_CONTAINER, PEBBLE_CHALLTEST_CONTAINER)
+    
