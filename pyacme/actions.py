@@ -1,6 +1,7 @@
 from typing import Dict, Any, List, Tuple, Type, TypeVar, Union
 import base64
 import json
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 
 import requests
 
@@ -411,9 +412,10 @@ class ACMEAccountActions(_AcctActionBase):
     def finalize_order(self, 
                     #    acct_obj: ACMEAccount, 
                        order_obj: ACMEOrder,
-                       privkey_path: str,
+                       privkey: Union[RSAPrivateKey, str],
                        domains: List[str],
                        subject_names: Dict[str, str],
+                       engine: str,
                     #    jws_type: TJWS) -> List[ACMEOrder]:
                        jws_type: TJWS) -> requests.Response:
         """
@@ -428,8 +430,9 @@ class ACMEAccountActions(_AcctActionBase):
         # for identifier in acct_obj.order_obj.identifiers:
         csr_der_output = parse_csr(
             # privkey_path=order_obj.related_acct.jwk_obj.priv_key_path,
-            privkey_path=privkey_path,
+            privkey=privkey,
             domains=domains,
+            engine=engine,
             **subject_names
         )
         csr_der_b = base64.urlsafe_b64encode(csr_der_output).strip(b'=')

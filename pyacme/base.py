@@ -1,6 +1,7 @@
 from typing import Dict, Any, Optional, Type, TypeVar, Union, List
 import base64
 import json
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 
 import requests
 
@@ -234,9 +235,10 @@ class _AcctActionBase:
     def finalize_order(self, 
                     #    acct_obj: ACMEAccount, 
                        order_obj: _ACMERespObject,
-                       privkey_path: str,
+                       privkey: Union[RSAPrivateKey, str],
                        domains: List[str],
                        subject_names: Dict[str, str],
+                       engine: str,
                     #    jws_type: TJWS) -> List[ACMEOrder]:
                        jws_type: TJWS) -> requests.Response:
         raise NotImplementedError

@@ -2,12 +2,15 @@ import base64
 import subprocess
 import hashlib
 import json
-from typing import List
+from typing import List, Optional, Union
 from pathlib import Path
 
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography import x509
+from cryptography.x509.oid import NameOID
+from cryptography.x509 import NameAttribute, DNSName, SubjectAlternativeName
+from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric import rsa
 import requests
 
 from pyacme.base import _JWKBase
@@ -29,7 +32,7 @@ def get_keyAuthorization(token: str, jwk: _JWKBase) -> str:
 
 def generate_rsa_privkey(privkey_dir: str, 
                          keysize = 2048,
-                         key_name = 'certkey.key') -> None:
+                         key_name = 'certkey.key') -> rsa.RSAPrivateKey:
     """
     generate private key to specified dir using `cryptography` package
     """
@@ -47,23 +50,52 @@ def generate_rsa_privkey(privkey_dir: str,
     )
     with open(f'{privkey_dir}/{key_name}', 'wb') as f:
         f.write(csr_priv_key_b)
+    return csr_priv_key
 
 
-def parse_csr(privkey_path: str, 
-              domains: List[str], 
-              extra: List[str] = [], 
-              **subjects: str) -> bytes:
+def create_csr(privkey: rsa.RSAPrivateKey,
+               domains: List[str],
+               *, 
+               C = '', 
+               ST = '', 
+               L = '', 
+               O = '', 
+               OU = '', 
+               emailAddress = '') -> bytes:
     """
-    `domains` will be added to csr using `-addtext` option of openssl, 
-    other subject names for `openssl req` list as below
+    generate csr using `cryptography.x509`
+    """
+    csr = x509.CertificateSigningRequestBuilder()
+    cn = ','.join([f'DNS:{d}' for d in domains])
+    csr = csr.subject_name(
+        x509.Name(
+            [
+                NameAttribute(NameOID.COUNTRY_NAME, C),
+                NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, ST),
+                NameAttribute(NameOID.LOCALITY_NAME, L),
+                NameAttribute(NameOID.ORGANIZATION_NAME, O),
+                NameAttribute(NameOID.ORGANIZATIONAL_UNIT_NAME, OU),
+                NameAttribute(NameOID.COMMON_NAME, cn),
+                NameAttribute(NameOID.EMAIL_ADDRESS, emailAddress),
+            ]
+        )
+    )
+    alt_names = tuple(DNSName(d) for d in domains)
+    csr = csr.add_extension(SubjectAlternativeName(alt_names), critical=False)
+    csr_signed = csr.sign(
+        privkey, algorithm=hashes.SHA256(), backend=default_backend()
+    )
+    # return csr_signed
+    return csr_signed.public_bytes(serialization.Encoding.DER)
 
-     * C = Country, like GB;
-     * ST = State or Province
-     * L  = Locality
-     * O  = Organization Name        
-     * OU = Organizational Unit Name
-     * emailAddress = test@email.address
 
+def create_csr_openssl(privkey_path: str, 
+                       domains: List[str], 
+                       extra: List[str] = [], 
+                       **subjects: str) -> bytes:
+    """
+    generate csr using `openssl req`, 
+    `domains` will be added to csr using `-addtext` option of openssl.
     """
     if subjects:
         names = '/' + '/'.join([f'{k}={v}' for k, v in subjects.items()])
@@ -89,6 +121,32 @@ def parse_csr(privkey_path: str,
     )
     output_b = output_p.stdout
     return output_b
+
+
+def parse_csr(privkey: Union[rsa.RSAPrivateKey, str], 
+              domains: List[str], 
+              extra: List[str] = [], 
+              engine: str = 'openssl',
+              **subjects: str) -> bytes:
+    """
+    ouput DER format bytes of a CSR, `C` is required for `engine="cryptography"`
+    subjects for csr list below:
+     * C = Country two-digit, like GB or US;
+     * ST = State or Province
+     * L  = Locality
+     * O  = Organization Name        
+     * OU = Organizational Unit Name
+     * emailAddress = test@email.address
+
+    """
+    if engine == 'cryptography' and isinstance(privkey, rsa.RSAPrivateKey):
+        return create_csr(privkey, domains, **subjects)
+    elif engine == 'openssl' and isinstance(privkey, str):
+        return create_csr_openssl(privkey, domains, extra, **subjects)
+    else:
+        raise ValueError(
+            f'unrecognized csr parser args "{engine=}" and "{privkey=}"'
+        )
 
 def save_cert(cert_resp: requests.Response, cert_dir: str) -> requests.Response:
     """
