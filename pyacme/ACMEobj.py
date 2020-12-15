@@ -293,7 +293,7 @@ class ACMEOrder(_ACMERespObject):
         )
         self._update_from_resp(resp)
     
-    def finalize_order(self, **subject_names) -> None:
+    def finalize_order(self, privkey_path: str, **subject_names) -> None:
         """
         finalize the `ACMEOrder` order by sending to its `"finalize"` url
         """
@@ -301,6 +301,7 @@ class ACMEOrder(_ACMERespObject):
         jws_type = self.related_acct.jwk_obj.related_JWS
         resp = act.finalize_order(
             self, 
+            privkey_path=privkey_path,
             domains=self.identifier_values,
             subject_names=subject_names,
             jws_type=jws_type

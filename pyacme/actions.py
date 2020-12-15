@@ -411,6 +411,7 @@ class ACMEAccountActions(_AcctActionBase):
     def finalize_order(self, 
                     #    acct_obj: ACMEAccount, 
                        order_obj: ACMEOrder,
+                       privkey_path: str,
                        domains: List[str],
                        subject_names: Dict[str, str],
                     #    jws_type: TJWS) -> List[ACMEOrder]:
@@ -426,8 +427,8 @@ class ACMEAccountActions(_AcctActionBase):
         # rtn: List[ACMEOrder] = []
         # for identifier in acct_obj.order_obj.identifiers:
         csr_der_output = parse_csr(
-            privkey_path=order_obj.related_acct.jwk_obj.priv_key_path,
-            # TODO figure out how this work
+            # privkey_path=order_obj.related_acct.jwk_obj.priv_key_path,
+            privkey_path=privkey_path,
             domains=domains,
             **subject_names
         )

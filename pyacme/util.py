@@ -49,24 +49,28 @@ def parse_csr(privkey_path: str,
     # TODO figure out how to add CN with multiple domains
     subj = f'/CN={domains[0]}' + names
     # private key that is different from the account private key should be used
-    csr_priv_key = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=2048,
-        backend=default_backend()
-    )
-    # TODO proper way to store generated csr private key
-    csr_priv_key_b = csr_priv_key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=serialization.NoEncryption()
-    )
-    with open('csr_privkey.pem', 'wb') as f:
-        f.write(csr_priv_key_b)
+    if not privkey_path:
+        # create a private key if not given
+        csr_priv_key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=2048,
+            backend=default_backend()
+        )
+        # TODO proper way to store generated csr private key
+        csr_priv_key_b = csr_priv_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+        with open('csr_privkey.pem', 'wb') as f:
+            f.write(csr_priv_key_b)
+        privkey_path = 'csr_privkey.pem'
+
     output_p = subprocess.run(
         [
             'openssl', 'req', '-new', 
             # '-key', privkey_path,
-            '-key', 'csr_privkey.pem',
+            '-key', privkey_path,
             '-outform', 'DER', 
             '-subj', subj,
             '-addext', altnames,
