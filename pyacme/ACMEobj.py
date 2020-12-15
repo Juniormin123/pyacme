@@ -1,3 +1,4 @@
+from pyacme.util import save_cert
 from types import prepare_class
 from typing import Dict, List, Optional
 import requests
@@ -308,7 +309,10 @@ class ACMEOrder(_ACMERespObject):
         )
         self._update_from_resp(resp)
 
-    def download_certificate(self, cert_fmt = 'pem-certificate-chain') -> str:
+    def download_certificate(self, 
+                             cert_dir: str,
+                             cert_fmt = 'pem-certificate-chain'
+                             ) -> requests.Response:
         """
         download certificate for an valid order.
         `cer_fmt` can be one of the following:
@@ -318,7 +322,7 @@ class ACMEOrder(_ACMERespObject):
 
         see https://tools.ietf.org/html/rfc8555#section-7.4.2
         """
-        cert_str = ''
+        # cert_str = ''
         header = {'Accept': f'application/{cert_fmt}'}
         if cert_fmt == 'pem-certificate-chain':
             resp = self._related_acct.acct_actions.post_as_get(
@@ -326,12 +330,17 @@ class ACMEOrder(_ACMERespObject):
                 acct_obj=self.related_acct,
                 jws_type=self.related_acct.jwk_obj.related_JWS
             )
-            cert_str = resp.text
-        elif cert_fmt == 'pkix-cert':
-            pass
-        elif cert_fmt == 'pkcs7-mime':
-            pass
-        return cert_str
+            resp = save_cert(resp, cert_dir)
+            # cert_str = resp.text
+            return resp
+        # TODO
+        # elif cert_fmt == 'pkix-cert':
+        #     pass
+        # elif cert_fmt == 'pkcs7-mime':
+        #     pass
+        else:
+            raise ValueError(f'unrecognized cert format: {cert_fmt}')
+        # return cert_str
 
 
     def _update_attr(self, resp: requests.Response, *args, **kwargs) -> None:
