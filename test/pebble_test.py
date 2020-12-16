@@ -10,143 +10,38 @@ test using pebble-challtestsrv:
 see https://github.com/letsencrypt/pebble/blob/master/cmd/pebble-challtestsrv/README.md
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List
 from pathlib import Path
 import time
-import json
 import subprocess
 import unittest
 
-import requests
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 
 # for running this file directly
 import sys
+# sys.path.append(str(Path(__file__).parents[0].absolute()))
 sys.path.append(str(Path(__file__).parents[1].absolute()))
 
-from pyacme.base import _JWKBase, _JWSBase
-from pyacme.util import get_keyAuthorization, generate_rsa_privkey
+from pyacme.util import generate_rsa_privkey
 from pyacme.jwk import JWKRSA
 from pyacme.jws import JWSRS256
 from pyacme.exceptions import ACMEError
 from pyacme.actions import ACMEAccountActions
 from pyacme.ACMEobj import ACMEAccount, ACMEAuthorization, ACMEOrder
 from pyacme.request import ACMERequestActions, Nonce
-from pyacme.settings import *
 
-
-# test constants
-_BASE = Path(__file__).parents[1].absolute()
-_RSA_PUB_1 = _BASE / 'test' / 'test_pubkey.pem'
-_RSA_PRIV_1 = _BASE / 'test' / 'test_privkey.pem'
-_RSA_PUB_2 = _BASE / 'test' / 'test_pubkey_2.pem'
-_RSA_PRIV_2 = _BASE / 'test' / 'test_privkey_2.pem'
-
-_CERT_DIR = _BASE / 'test' / '.cert_files'
-_CERT_DIR.mkdir(parents=True, exist_ok=True)
-
-_TEST_CONTACTS = ['mailto:min641366609@live.com']
-_TEST_CONTACTS_MOD = ['mailto:calvin.cheng@synergyfutures.com']
-
-_SLEEP_AFTER_DOCKER = 4
-
-# print(RSA_PUB_1)
-
-global_docker_is_running = False
-
-
-def _run_cmd(*cmd_args: str) -> None:
-    completed = subprocess.run(
-        args=cmd_args,
-        capture_output=True,
-        encoding='utf-8',
-        # should raise exception if docker failed to run
-        check=True
-    )
-    # if completed.stdout:
-    #     print(completed.stdout)
-    # # docker output seems to be on stderr
-    # print(completed.stderr)
-
-
-def run_pebble_docker(docker_file_path: str) -> None:
-    """run `docker-compose up` on given docker-compose.yml in the background"""
-    global global_docker_is_running
-    _run_cmd('docker-compose', '-f', docker_file_path, 'up', '-d')
-    # wait for a while to make sure container is up and running
-    time.sleep(_SLEEP_AFTER_DOCKER)
-    print('docker container running')
-    global_docker_is_running = True
-
-
-def stop_pebble_docker(*docker_names: str) -> None:
-    global global_docker_is_running
-    """`docker stop DOCKER_NAMES ...`"""
-    _run_cmd('docker', 'stop', *docker_names)
-    print('docker container stopped')
-    global_docker_is_running = False
-
-
-def restart_pebble_docker(docker_file_path: str, *docker_names: str) -> None:
-    stop_pebble_docker(*docker_names)
-    run_pebble_docker(docker_file_path)
-
-
-def restart_pebble_docker_specific():
-    if global_docker_is_running:
-        restart_pebble_docker(
-            PEBBLE_DOCKER_FILE, 
-            PEBBLE_CONTAINER, 
-            PEBBLE_CHALLTEST_CONTAINER
-        )
-
-
-def add_dns_A(host: str, addr: str) -> requests.Response:
-    """add an A record to pebble-challtestsrv"""
-    data = json.dumps({'host': host, 'address': addr})
-    resp = requests.post(PEBBLE_CHALLTEST_DNS_A, data=data)
-    return resp
-
-
-def add_http_01(token: str, jwk: _JWKBase) -> requests.Response:
-    """
-    add repsond to challtestsrv, pebble will send challenge request to 
-    challtestsrv if pebble recieve `respond_to_challenge` request
-    """
-    content = get_keyAuthorization(token, jwk)
-    resp = requests.post(
-        url=PEBBLE_CHALLTEST_HTTP01,
-        data=json.dumps({'token': token, 'content': content})
-    )
-    return resp
-
-
-def load_test_keys(*key_pair_path: str) -> List[tuple]:
-    key_pairs: List[tuple] = []
-    for pub_path, priv_path in key_pair_path:
-        with open(pub_path, 'rb') as pub_f:
-            pub_key = serialization.load_pem_public_key(
-                pub_f.read(),
-                backend=default_backend()
-            )
-        with open(priv_path, 'rb') as priv_f:
-            priv_key = serialization.load_pem_private_key(
-                priv_f.read(),
-                password=None,
-                backend=default_backend()
-            )
-        key_pairs.append(((pub_key, priv_key), priv_path))
-    return key_pairs
+# add "python.analysis.extraPaths": ["test"] to .vscode/setting.json
+from test_common import *
 
 
 # set up RSA variables
 def _set_up_rsa(self):
     self.rsa_test = dict()
     self.rsa_test['key_pair'] = load_test_keys(
-        (_RSA_PUB_1, _RSA_PRIV_1),
-        (_RSA_PUB_2, _RSA_PRIV_2)
+        (RSA_PUB_1, RSA_PRIV_1),
+        (RSA_PUB_2, RSA_PRIV_2)
     )
     self.rsa_test['jwk_rsa_list'] = []
     for key_pair, priv_key_path in self.rsa_test['key_pair']:
@@ -186,7 +81,7 @@ class ACMERequestActionsTest(unittest.TestCase):
                     jwk=jwk_list[0],
                     payload={
                         'termsOfServiceAgreed': True,
-                        'contact': _TEST_CONTACTS
+                        'contact': TEST_CONTACTS
                     },
                 )
                 jws.sign()
@@ -220,7 +115,7 @@ def common_setup(self, create_account = True):
             acct = ACMEAccount.init_by_create(
                 jwk=jwk,
                 acct_actions=self.acct_actions,
-                contact=_TEST_CONTACTS
+                contact=TEST_CONTACTS
             )
             self.acct_list.append(acct)
 
@@ -237,7 +132,7 @@ class ACMEAccountInitTest(unittest.TestCase):
                 acct = ACMEAccount.init_by_create(
                     jwk=jwk,
                     acct_actions=self.acct_actions,
-                    contact=_TEST_CONTACTS
+                    contact=TEST_CONTACTS
                 )
                 # reponse 201-created if an account is created
                 self.assertEqual(acct._resp.status_code, 201)
@@ -248,7 +143,7 @@ class ACMEAccountInitTest(unittest.TestCase):
                 ACMEAccount.init_by_create(
                     jwk=jwk,
                     acct_actions=self.acct_actions,
-                    contact=_TEST_CONTACTS
+                    contact=TEST_CONTACTS
                 )
                 acct = ACMEAccount.init_by_query(
                     jwk=jwk,
@@ -283,12 +178,12 @@ class ACMEAccountActionsTest(unittest.TestCase):
     
     def test_update_account(self):
         for acct in self.acct_list:
-            acct.update_account(contact=_TEST_CONTACTS_MOD)
+            acct.update_account(contact=TEST_CONTACTS_MOD)
             acct.poll_acct_state()
 
             # successful update will return 200-OK
             self.assertEqual(acct._resp.status_code, 200)
-            self.assertCountEqual(_TEST_CONTACTS_MOD, acct.contact)
+            self.assertCountEqual(TEST_CONTACTS_MOD, acct.contact)
     
     def test_account_key_rollover(self):
         acct = self.acct_list[0]
@@ -305,7 +200,7 @@ class ACMEAccountActionsTest(unittest.TestCase):
             ACMEAccount.init_by_create(
                 jwk=self.jwk_new,
                 acct_actions=self.acct_actions,
-                contact=_TEST_CONTACTS
+                contact=TEST_CONTACTS
             )
     
     def tearDown(self) -> None:
@@ -509,12 +404,12 @@ class ACMEOrderCertificateTest(unittest.TestCase):
             [
                 'wget', 'https://localhost:15000/roots/0', 
                 '--no-check-certificate',
-                '-O', f'{_CERT_DIR/"pebble-root-cert.pem"!s}',
+                '-O', f'{CERT_DIR/"pebble-root-cert.pem"!s}',
                 '--quiet'
             ]
         )
 
-        self.csr_privkey = generate_rsa_privkey(_CERT_DIR)
+        self.csr_privkey = generate_rsa_privkey(CERT_DIR)
 
         self.idf_multi_list = [
             [f'test-{i}.local', f'test-{i}-m.local'] 
@@ -546,7 +441,7 @@ class ACMEOrderCertificateTest(unittest.TestCase):
             if engine == 'cryptography':
                 privkey = self.csr_privkey
             elif engine == 'openssl':
-                privkey = f'{_CERT_DIR/"certkey.key"!s}'
+                privkey = f'{CERT_DIR/"certkey.key"!s}'
             else:
                 raise ValueError
             order_obj.finalize_order(
@@ -566,19 +461,19 @@ class ACMEOrderCertificateTest(unittest.TestCase):
             self.assertEqual(order_obj.status, 'valid')
 
             # download cert to indexed dir
-            path = _CERT_DIR / f'order_{i}_{engine}'
+            path = CERT_DIR / f'order_{i}_{engine}'
             path.mkdir(exist_ok=True)
             cert_resp = order_obj.download_certificate(f'{path!s}')
             self.assertEqual(cert_resp.status_code, 200)
 
-            cert_path = _CERT_DIR / f'order_{i}_{engine}' / 'cert.pem'
-            chain_path = _CERT_DIR / f'order_{i}_{engine}' / 'chain.pem'
+            cert_path = CERT_DIR / f'order_{i}_{engine}' / 'cert.pem'
+            chain_path = CERT_DIR / f'order_{i}_{engine}' / 'chain.pem'
 
             # openssl verify
             subprocess.run(
                 [
                     'openssl', 'verify',
-                    '-CAfile', f'{_CERT_DIR/"pebble-root-cert.pem"!s}',
+                    '-CAfile', f'{CERT_DIR/"pebble-root-cert.pem"!s}',
                     '-untrusted', str(chain_path),
                     str(cert_path)
                 ]
