@@ -433,7 +433,7 @@ class ACMEAuthorization(_ACMERespObject):
     see https://tools.ietf.org/html/rfc8555#section-7.1.4
     """
     def __init__(self, resp: requests.Response, *args, **kwargs) -> None:
-        self.stats: str
+        self.status: str
         self.expires: str
         self.identifier: Dict[str, str]
         self.challenges: List[str]
