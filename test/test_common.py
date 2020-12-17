@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Union
 from pathlib import Path
 import time
 import json
@@ -103,7 +103,7 @@ def add_http_01(token: str, jwk: _JWKBase) -> requests.Response:
     return resp
 
 
-T = List[Tuple[Tuple[str, str], str]]
+T = List[Tuple[tuple, str]]
 
 
 def load_test_keys(*key_pair_path: Tuple[str, str]) -> T:
@@ -125,6 +125,33 @@ def load_test_keys(*key_pair_path: Tuple[str, str]) -> T:
             )
         key_pairs.append(((pub_key, priv_key), priv_path))
     return key_pairs
+
+
+def download_root_cert(root_cert_path, name = "pebble-root-cert.pem"):
+    """download root cert from pebble container"""
+    subprocess.run(
+        [
+            'wget', 'https://localhost:15000/roots/0', 
+            '--no-check-certificate',
+            '-O', f'{root_cert_path/name!s}',
+            '--quiet'
+        ]
+    )
+
+
+def openssl_verify(cert_path: Union[Path, str], 
+                   chain_path: Union[Path, str], 
+                   root_cert_path = CERT_DIR,
+                   root_cert_name = "pebble-root-cert.pem"):
+    """run `openssl verify` on downloaded cert"""
+    subprocess.run(
+        [
+            'openssl', 'verify',
+            '-CAfile', f'{root_cert_path/root_cert_name!s}',
+            '-untrusted', str(chain_path),
+            str(cert_path)
+        ]
+    )
 
 
 if __name__ == '__main__':

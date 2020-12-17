@@ -32,7 +32,7 @@ from pyacme.actions import ACMEAccountActions
 from pyacme.ACMEobj import ACMEAccount, ACMEAuthorization, ACMEOrder
 from pyacme.request import ACMERequestActions, Nonce
 
-# add "python.analysis.extraPaths": ["test"] to .vscode/setting.json
+# add "python.analysis.extraPaths": ["test"] to .vscode/settings.json
 from test_common import *
 
 
@@ -400,14 +400,7 @@ class ACMEOrderCertificateTest(unittest.TestCase):
     def setUp(self) -> None:
         common_setup(self, create_account=True)
         # download pebble root CA, this CA will be recreated on each reboot
-        subprocess.run(
-            [
-                'wget', 'https://localhost:15000/roots/0', 
-                '--no-check-certificate',
-                '-O', f'{CERT_DIR/"pebble-root-cert.pem"!s}',
-                '--quiet'
-            ]
-        )
+        download_root_cert(CERT_DIR)
 
         self.csr_privkey = generate_rsa_privkey(CERT_DIR)
 
@@ -469,15 +462,7 @@ class ACMEOrderCertificateTest(unittest.TestCase):
             cert_path = CERT_DIR / f'order_{i}_{engine}' / 'cert.pem'
             chain_path = CERT_DIR / f'order_{i}_{engine}' / 'chain.pem'
 
-            # openssl verify
-            subprocess.run(
-                [
-                    'openssl', 'verify',
-                    '-CAfile', f'{CERT_DIR/"pebble-root-cert.pem"!s}',
-                    '-untrusted', str(chain_path),
-                    str(cert_path)
-                ]
-            )
+            openssl_verify(cert_path, chain_path)
 
     def test_download_cert_openssl_csr(self):
         """test for order finalization, then cert download", use openssl"""
