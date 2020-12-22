@@ -1,7 +1,10 @@
 import base64
+
+import socketserver
 import subprocess
 import hashlib
 import json
+from http.server import SimpleHTTPRequestHandler, HTTPServer
 from typing import List, Optional, Union
 from pathlib import Path
 
@@ -11,9 +14,11 @@ from cryptography.x509 import NameAttribute, DNSName, SubjectAlternativeName
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import ec
 import requests
 
 from pyacme.base import _JWKBase
+from pyacme.jwk import JWKRSA
 
 
 def get_keyAuthorization(token: str, jwk: _JWKBase) -> str:
@@ -66,7 +71,8 @@ def create_csr(privkey: rsa.RSAPrivateKey,
     generate csr using `cryptography.x509`
     """
     csr = x509.CertificateSigningRequestBuilder()
-    cn = ','.join([f'DNS:{d}' for d in domains])
+    # cn = ','.join([f'DNS:{d}' for d in domains])
+    cn = ','.join(domains)
     csr = csr.subject_name(
         x509.Name(
             [
@@ -174,3 +180,40 @@ def save_cert(cert_resp: requests.Response, cert_dir: str) -> requests.Response:
         f.write(chain)
 
     return cert_resp
+
+
+def run_http_server(path: Union[Path, str], port = 80) -> None:
+    """run a pyhton http server on port 80 to reponse acme challenge"""
+    class Handler(SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs) :
+            super().__init__(*args, directory=str(path), **kwargs)
+
+    with socketserver.TCPServer(('', port), Handler) as httpd:
+        try:
+            # TODO proper log
+            print(f'serving at port {port}')
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            httpd.server_close()
+
+
+def jwk_factory(acct_priv_key: str) -> _JWKBase:
+    """generate jwk object according private key file"""
+    with open(acct_priv_key, 'rb') as f:
+        acct_priv = serialization.load_pem_private_key(
+            data=f.read(),
+            password=None,
+            backend=default_backend()
+        )
+        if isinstance(acct_priv, rsa.RSAPrivateKey):
+            jwk = JWKRSA(
+                priv_key=acct_priv,
+                n=acct_priv.public_key().public_numbers().n,
+                e=acct_priv.public_key().public_numbers().e
+            )
+        # elif isinstance(acct_priv, ec.EllipticCurvePrivateKey):
+        #     # TODO 
+        #     pass
+        else:
+            raise TypeError(f'key type {type(acct_priv)} not supported')
+        return jwk
