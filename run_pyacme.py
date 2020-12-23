@@ -57,7 +57,8 @@ def main(domains: List[str],
          CA_entry: str,
          poll_interval: float,
          poll_retry_count: int,
-         csr_priv_key_type: str) -> None:
+         csr_priv_key_type: str,
+         chall_resp_server_port: int = 80) -> None:
     # set url for CA 
     ACMERequestActions.set_directory_url(CA_entry)
     ACMERequestActions.query_dir()
@@ -86,8 +87,7 @@ def main(domains: List[str],
     # start http server
     server_p = Process(
         target=run_http_server,
-        # args=(chall_path, 80),
-        args=(chall_path, 5002),
+        args=(chall_path, chall_resp_server_port),
         # daemon=True
     )
     server_p.start()
@@ -173,19 +173,36 @@ if __name__ == '__main__':
     # )
 
     # test run with letsencrypt staing
-    from pyacme.settings import LETSENCRYPT_STAGING
+    from pyacme.settings import LETSENCRYPT_STAGING, LETSENCRYPT_PRODUCTION
 
+    # main(
+    #     domains=['xn--jhqy4a5a064kimjf01df8e.host'],
+    #     contact=['mailto:min641366609@live.com'],
+    #     acct_priv_key='./test/test_privkey.pem',
+    #     not_before='',
+    #     not_after='',
+    #     subject_names={'C': 'CN', 'ST': 'Hong Kong'},
+    #     cert_path='./test/.staging_cert_files',
+    #     chall_path=str(Path('/home/min123/acme')),
+    #     mode='http',
+    #     CA_entry=LETSENCRYPT_STAGING,
+    #     poll_interval=5,
+    #     poll_retry_count=24,
+    #     csr_priv_key_type='rsa'
+    # )
+
+    # production test
     main(
-        domains=['xn--jhqy4a5a064kimjf01df8e.host'],
+        domains=['xn--uvz335a.xn--jhqy4a5a064kimjf01df8e.host'],
         contact=['mailto:min641366609@live.com'],
         acct_priv_key='./test/test_privkey.pem',
         not_before='',
         not_after='',
-        subject_names={'C': 'CN', 'O': 'test Org'},
-        cert_path='./test/.staging_cert_files',
+        subject_names={'C': 'CN', 'ST': 'Hong Kong'},
+        cert_path='./test/.prod_cert_files',
         chall_path=str(Path('/home/min123/acme')),
         mode='http',
-        CA_entry=LETSENCRYPT_STAGING,
+        CA_entry=LETSENCRYPT_PRODUCTION,
         poll_interval=5,
         poll_retry_count=24,
         csr_priv_key_type='rsa'
