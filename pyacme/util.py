@@ -35,6 +35,20 @@ def get_keyAuthorization(token: str, jwk: _JWKBase) -> str:
     return f"{token}.{str(b64, encoding='utf-8')}"
 
 
+def get_dns_chall_txt_record(token: str, jwk: _JWKBase) -> str:
+    """
+    return a string of a dns TXT record; the whole dns record looks like
+    `_acme-challenge.www.example.org. 300 IN TXT keyauth_digest`
+
+    see https://tools.ietf.org/html/rfc8555#section-8.4
+    """
+    keyauth = get_keyAuthorization(token, jwk)
+    # sha256 on the keyauth string, see rfc8555 8.4 p66
+    keyauth_digest = hashlib.sha256(keyauth.encode('utf-8')).digest()
+    b64 = base64.urlsafe_b64encode(keyauth_digest).strip(b'=')
+    return str(b64, encoding='utf-8')
+
+
 def generate_rsa_privkey(privkey_dir: str, 
                          keysize = 2048,
                          key_name = 'certkey.key') -> rsa.RSAPrivateKey:

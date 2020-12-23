@@ -13,7 +13,7 @@ import sys
 sys.path.append(str(Path(__file__).parents[1].absolute()))
 
 from pyacme.base import _JWKBase
-from pyacme.util import get_keyAuthorization
+from pyacme.util import get_keyAuthorization, get_dns_chall_txt_record
 from pyacme.settings import *
 
 
@@ -87,6 +87,19 @@ def add_dns_A(host: str, addr: str) -> requests.Response:
     """add an A record to pebble-challtestsrv"""
     data = json.dumps({'host': host, 'address': addr})
     resp = requests.post(PEBBLE_CHALLTEST_DNS_A, data=data)
+    return resp
+
+
+def add_dns_01(token: str, domain: str, jwk: _JWKBase) -> requests.Response:
+    """
+    add dns-01 challenge respond to pebble challtest
+    """
+    value = get_dns_chall_txt_record(token, jwk)
+    domain = f'_acme-challenge.{domain}.'
+    resp = requests.post(
+        url=PEBBLE_CHALLTEST_DNS01,
+        data=json.dumps({'host': domain, 'value': value})
+    )
     return resp
 
 

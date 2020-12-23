@@ -362,17 +362,12 @@ class ACMEChallengeTest(unittest.TestCase):
             order_obj = acct.new_order(identifiers=idf_multi)
             self.order_objs.append(order_obj)
     
-    def test_respond(self):
+    def _respond(self, respond_func, verify_status):
         for order_obj in self.order_objs:
             order_obj.poll_order_state()
             for auth_obj in order_obj.auth_objs:
-                # respond to http challenge
-                jwk = order_obj.related_acct.jwk_obj
-
-                # pebble challtest service
-                add_http_01(auth_obj.chall_http.token, jwk)
-
-                auth_obj.chall_http.respond()
+                
+                respond_func(auth_obj, order_obj)
 
                 # poll immediately should have "pending" state
                 auth_obj.poll_auth_state()
@@ -381,15 +376,42 @@ class ACMEChallengeTest(unittest.TestCase):
                 # wait for challenges to complete
                 time.sleep(5)
                 auth_obj.poll_auth_state()
-                status = auth_obj.chall_http.status
 
-                # chall object state should become "valid"
-                self.assertEqual(status, 'valid')
+                verify_status(self, auth_obj)
+
                 self.assertEqual(auth_obj.status, 'valid')
             
             # once all auth valid, order state become "ready"
             order_obj.poll_order_state()
             self.assertEqual(order_obj.status, 'ready')
+    
+    def test_respond_http(self):
+        """add http-01 chall repsond to pebble challtest"""
+        def respond_func(auth_obj, order_obj):
+            jwk = order_obj.related_acct.jwk_obj
+            add_http_01(auth_obj.chall_http.token, jwk)
+            auth_obj.chall_http.respond()
+
+        def verify_status(self, auth_obj):
+            status = auth_obj.chall_http.status
+            # chall object state should become "valid"
+            self.assertEqual(status, 'valid')
+
+        self._respond(respond_func, verify_status)
+
+    def test_respond_dns(self):
+        """add dns-01 chall repsond to pebble challtest"""
+        def respond_func(auth_obj, order_obj):
+            jwk = order_obj.related_acct.jwk_obj
+            add_dns_01(auth_obj.chall_dns.token, auth_obj.identifier_value, jwk)
+            auth_obj.chall_dns.respond()
+
+        def verify_status(self, auth_obj):
+            status = auth_obj.chall_dns.status
+            # chall object state should become "valid"
+            self.assertEqual(status, 'valid')
+
+        self._respond(respond_func, verify_status)
 
     def tearDown(self) -> None:
         stop_pebble_docker(PEBBLE_CONTAINER, PEBBLE_CHALLTEST_CONTAINER)
