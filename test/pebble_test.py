@@ -417,6 +417,28 @@ class ACMEChallengeTest(unittest.TestCase):
         stop_pebble_docker(PEBBLE_CONTAINER, PEBBLE_CHALLTEST_CONTAINER)
 
 
+class ACMEChallengeWildcardResponse(unittest.TestCase):
+
+    def setUp(self) -> None:
+        common_setup(self, create_account=True)
+        # use wildcard domain
+        self.idf_multi_list = [
+            [f'*.test-{i}.local', f'test-{i}-m.local'] 
+            for i in range(len(self.acct_list))
+        ]
+        # each auth_obj represents one identifier in an order
+        self.order_objs: List[ACMEOrder] = []
+        for acct, idf_multi in zip(self.acct_list, self.idf_multi_list):
+            order_obj = acct.new_order(identifiers=idf_multi)
+            self.order_objs.append(order_obj)
+    
+    _respond = ACMEChallengeTest._respond
+    test_respond_dns = ACMEChallengeTest.test_respond_dns
+
+    def tearDown(self) -> None:
+        stop_pebble_docker(PEBBLE_CONTAINER, PEBBLE_CHALLTEST_CONTAINER)
+
+
 class ACMEOrderCertificateTest(unittest.TestCase):
 
     def setUp(self) -> None:
