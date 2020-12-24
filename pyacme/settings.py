@@ -12,8 +12,8 @@ LETSENCRYPT_STAGING = "https://acme-staging-v02.api.letsencrypt.org/directory"
 # package `certifi` cacert.pem which is used by `requests` or
 # set "verify=False" when using requests
 # see https://github.com/letsencrypt/pebble/tree/master/test/certs
-VERIFY_SSL = False
-# VERIFY_SSL = True
+# VERIFY_SSL = False
+VERIFY_SSL = True
 
 TEST_IP = "127.0.0.1"
 TEST_PORT = 14000
