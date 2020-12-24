@@ -63,5 +63,9 @@ class DNS01ChallengeRespondHandler:
         self._aliyun_record_id = resp_dict['RecordId']
     
     def _clear_dns_record_aliyun(self):
-        client = aliyun.create_client(self.access_key, self.secret)
-        aliyun.del_domain_record_by_id(client, self._aliyun_record_id)
+        if hasattr(self, '_aliyun_record_id'):
+            client = aliyun.create_client(self.access_key, self.secret)
+            aliyun.del_domain_record_by_id(client, self._aliyun_record_id)
+            print(f'aliyun dns record {self._aliyun_record_id} cleared')
+        else:
+            print('no aliyun dns record cleared')
