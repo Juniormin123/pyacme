@@ -5,8 +5,9 @@ from typing import Any, Dict, List
 from pathlib import Path
 from multiprocessing import Process
 import time
+import argparse
 
-from pyacme.util import generate_rsa_privkey, get_keyAuthorization, \
+from pyacme.util import generate_rsa_privkey, get_keyAuthorization, parse_csr, \
                         run_http_server, jwk_factory
 from pyacme.ACMEobj import ACMEAccount, ACMEAuthorization, ACMEOrder
 from pyacme.actions import ACMEAccountActions
@@ -104,6 +105,7 @@ def main(domains: List[str],
          poll_interval: float,
          poll_retry_count: int,
          csr_priv_key_type: str,
+         csr_priv_key_size: int,
          chall_resp_server_port: int = 80) -> None:
 
     # wildcard domain only available for dns mode
@@ -255,23 +257,145 @@ if __name__ == '__main__':
     # )
 
     # test for wildcard domain and dns method
-    main(
-        domains=['*.xn--jhqy4a5a064kimjf01df8e.host'],
-        contact=['mailto:min641366609@live.com'],
-        acct_priv_key='./test/test_privkey.pem',
-        not_before='',
-        not_after='',
-        subject_names={'C': 'CN', 'ST': 'Hong Kong'},
-        cert_path='./test/.prod_cert_files',
-        chall_path=str(Path('/home/min123/acme')),
-        mode='dns',
-        CA_entry=LETSENCRYPT_STAGING,
-        poll_interval=5,
-        poll_retry_count=24,
-        dnsprovider='aliyun',
-        # input key mannually
-        access_key='',
-        secret='',
-        dns_specifics=dict(),
-        csr_priv_key_type='rsa'
+    # main(
+    #     domains=['*.xn--jhqy4a5a064kimjf01df8e.host'],
+    #     contact=['mailto:min641366609@live.com'],
+    #     acct_priv_key='./test/test_privkey.pem',
+    #     not_before='',
+    #     not_after='',
+    #     subject_names={'C': 'CN', 'ST': 'Hong Kong'},
+    #     cert_path='./test/.prod_cert_files',
+    #     chall_path=str(Path('/home/min123/acme')),
+    #     mode='dns',
+    #     CA_entry=LETSENCRYPT_STAGING,
+    #     poll_interval=5,
+    #     poll_retry_count=24,
+    #     dnsprovider='aliyun',
+    #     # input key mannually
+    #     access_key='',
+    #     secret='',
+    #     dns_specifics=dict(),
+    #     csr_priv_key_type='rsa'
+    # )
+    parser = argparse.ArgumentParser(
+        description='A simple acme client written in python'
     )
+    parser.add_argument(
+        '-d',
+        '--domain',
+        required=True,
+        action='append',
+        help='FDQN, international domain should use punycode; '
+             'use multiple `-d` to provide more than one domains.'
+    )
+    parser.add_argument(
+        '-c',
+        '--contact',
+        action='append',
+        help="domain holder's email address for CA to send notification, "
+             'use multiple `-c` to provide more than one contact email.'
+    )
+    parser.add_argument(
+        '-C',
+        '--country_code',
+        required=True,
+        help='two-digit country code, e.g. CN'
+    )
+    parser.add_argument(
+        '--account_private_key',
+        help='Optional, absolute path to a pem private key file. '
+             'RSA key size must be larger than 2048 and multiple of 4'
+    )
+    parser.add_argument(
+        '--not_before',
+        help='Optional, a date time string, acme order will not be availabe '
+             'before this time'
+    )
+    parser.add_argument(
+        '--not_after',
+        help='Optional, a date time string, acme order will not be availabe '
+             'after this time'
+    )
+    parser.add_argument(
+        '--cert_path',
+        default='~/.pyacme',
+        help='Optional, absolute path to where certificates will be saved, '
+             r'default path is ~/.pyacme/{domain_name}/cert'
+    )
+    parser.add_argument(
+        '--chall_path',
+        help='Optional, absolute path to where http-01 challenge respond files '
+             'will be served by a http server. default is '
+             r'~/.pyacme/{domain_name}/chall_http'
+    )
+    parser.add_argument(
+        '-m',
+        '--mode',
+        choices=['http', 'dns'],
+        default='dns',
+        help='Optional, decide how to complete acme challenge, default "dns"; '
+             'root privilege needed for "http" mode'
+    )
+    parser.add_argument(
+        '--dns_provider',
+        choices=['aliyun'],
+        default='aliyun',
+        help='Optional, select one dnsprovider, default "aliyun"'
+    )
+    parser.add_argument(
+        '-k',
+        '--access_key',
+        help='access key or token to dns provider, if mode is "dns", this '
+             'option is required; if mode is "http", this option is omitted'
+    )
+    parser.add_argument(
+        '-s',
+        '--secret',
+        help='secret or token to dns provider, if mode is "dns", and '
+             'dnsprovider is "aliyun" this option is required; '
+             'if mode is "http", this option is omitted'
+    )
+    parser.add_argument(
+        '--dns_specifics',
+        action='append',
+        help='Optional, for certain dnsproviders, pass "key=value" '
+    )
+    parser.add_argument(
+        '--CA_entry',
+        help='Optional, url to a CA /directory, default is letsencrypt prod'
+    )
+    parser.add_argument(
+        '--poll_interval',
+        type=float,
+        default=5.0,
+        help='Optional, seconds between each authorization poll, default 3.0'
+    )
+    parser.add_argument(
+        '--poll_retry_count',
+        type=int,
+        default=24,
+        help='Optional, total count of authorization poll retry, default 24'
+    )
+    parser.add_argument(
+        '--csr_priv_key_type',
+        choices=['rsa'],
+        default='rsa',
+        help='Optional, select key type to sign CSR, default "rsa"'
+    )
+    parser.add_argument(
+        '--csr_priv_key_size',
+        type=int,
+        default=2048,
+        help='Optional, key size of key that will sign CSR, default 2048'
+    )
+    parser.add_argument(
+        '--chall_resp_server_port',
+        type=int,
+        default=80,
+        help='Optional, the port used when responding to http-01 challenge; '
+             'usually on port 80'
+    )
+    args = parser.parse_args()
+
+    # test
+    print(args)
