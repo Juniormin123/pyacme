@@ -4,7 +4,7 @@ import time
 
 import requests
 
-from pyacme.settings import LETSENCRYPT_STAGING, VERIFY_SSL
+from pyacme.settings import LETSENCRYPT_STAGING
 from pyacme.base import _JWSBase, _ACMERequestBase
 from pyacme.exceptions import ACMEError
 
@@ -44,6 +44,7 @@ class ACMERequestActions(_ACMERequestBase):
     dir_url = LETSENCRYPT_STAGING
     acme_dir: Dict[str, str] = dict()
     badNonce_max_retry = 5
+    verify = True
     
     @classmethod
     def set_directory_url(cls, dir_url: str) -> None:
@@ -56,7 +57,7 @@ class ACMERequestActions(_ACMERequestBase):
         see https://tools.ietf.org/html/rfc8555#section-7.1
         """
         # no special headers needed
-        _resp = requests.get(cls.dir_url, headers=headers, verify=VERIFY_SSL)
+        _resp = requests.get(cls.dir_url, headers=headers, verify=cls.verify)
         cls.acme_dir = json.loads(_resp.text)
         
     def __init__(self, nonce: Nonce = Nonce()):
@@ -81,7 +82,7 @@ class ACMERequestActions(_ACMERequestBase):
                 url=url,
                 data=json.dumps(jws.post_body),
                 headers=headers,
-                verify=VERIFY_SSL
+                verify=self.verify
             )
             self.nonce.update_from_resp(resp)
             return resp
@@ -92,7 +93,7 @@ class ACMERequestActions(_ACMERequestBase):
             url=url,
             data=json.dumps(jws.post_body),
             headers=headers,
-            verify=VERIFY_SSL
+            verify=self.verify
         )
         self.nonce.update_from_resp(resp)
 
@@ -122,7 +123,7 @@ class ACMERequestActions(_ACMERequestBase):
         resp = requests.head(
             self.acme_dir['newNonce'], 
             headers=headers,
-            verify=VERIFY_SSL
+            verify=self.verify
         )
         self.nonce.update_from_resp(resp)
         
