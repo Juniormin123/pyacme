@@ -14,7 +14,8 @@ sys.path.append(str(Path(__file__).parents[1].absolute()))
 
 from pyacme.base import _JWKBase
 from pyacme.util import get_keyAuthorization, get_dns_chall_txt_record
-from pyacme.settings import *
+# from pyacme.settings import *
+from test_settings import *
 
 
 # test constants

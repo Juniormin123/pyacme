@@ -36,6 +36,9 @@ from pyacme.request import ACMERequestActions, Nonce
 from test_common import *
 
 
+ACMERequestActions.verify = VERIFY_SSL
+
+
 # set up RSA variables
 def _set_up_rsa(self):
     self.rsa_test = dict()
