@@ -168,5 +168,75 @@ def openssl_verify(cert_path: Union[Path, str],
     )
 
 
+def add_host_entry(domains: List[str], addr: str) -> None:
+    """
+    add entry like `127.0.0.1 test.local` to /etc/hosts, if entry exists, skip
+    """
+    def _sudo_sed(domain: str) -> subprocess.CompletedProcess:
+        p = subprocess.run(
+            [
+                'sudo', 
+                'sed', '-i',
+                '$a\\' + f'{addr} {domain}',
+                '/etc/hosts'
+            ],
+            check=True
+        )
+        return p
+    
+    # check the content of hosts
+    checked_p = subprocess.run(
+        ['sudo', 'cat', '/etc/hosts'], 
+        capture_output=True
+    )
+    entries = checked_p.stdout.decode('utf-8').split('\n')
+    
+    for domain in domains:
+        for entry in entries:
+            if domain in entry:
+                print(f'{domain} exists in /etc/hosts')
+                break
+        else:
+            _sudo_sed(domain)
+            print(f'{domain} added to /etc/hosts')
+
+
+def run_pebble_standalone_container(name: str = 'pebble'):
+    """run a pebble container using host's network"""
+    p = subprocess.run(
+        [
+            'docker', 'run', 
+            '-d', 
+            '-e', '"PEBBLE_VA_NOSLEEP=1"', 
+            '--network=host',
+            '--name', name,
+            'letsencrypt/pebble'
+        ],
+        check=False,
+        capture_output=True
+    )
+    if p.returncode != 0:
+        raise ValueError(p.stderr.decode('utf-8'))
+    time.sleep(SLEEP_AFTER_DOCKER)
+
+
+def stop_pebble_standalone_container(name: str = 'pebble') -> None:
+    subprocess.run(['docker', 'stop', name], check=True)
+    subprocess.run(['docker', 'container', 'prune', '-f'], check=True)
+
+
+def create_py_http_server(bind: str, port: str, path: str) -> subprocess.Popen:
+    p =  subprocess.Popen(
+        [
+            'python', '-m', 'http.server', 
+            '--bind', bind,
+            '--directory', path,
+            port
+        ]
+    )
+    print(f'server created at pid={p.pid}')
+    return p
+
+
 if __name__ == '__main__':
     print(Path(__file__).parent)
