@@ -4,8 +4,9 @@ import socketserver
 import subprocess
 import hashlib
 import json
-from http.server import SimpleHTTPRequestHandler, HTTPServer
-from typing import List, Optional, Union
+from argparse import Namespace
+from http.server import SimpleHTTPRequestHandler
+from typing import List, Union
 from pathlib import Path
 
 from cryptography import x509
@@ -14,11 +15,11 @@ from cryptography.x509 import NameAttribute, DNSName, SubjectAlternativeName
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.asymmetric import ec
 import requests
 
 from pyacme.base import _JWKBase
 from pyacme.jwk import JWKRSA
+from pyacme.settings import *
 
 
 def get_keyAuthorization(token: str, jwk: _JWKBase) -> str:
@@ -231,3 +232,121 @@ def jwk_factory(acct_priv_key: str) -> _JWKBase:
         else:
             raise TypeError(f'key type {type(acct_priv)} not supported')
         return jwk
+
+
+def check_path(wd: str, domains: List[str]) -> str:
+    """
+    for default file structure, `root="~/.pyacme"`; may be subsitituted by user
+    given value.
+    ```
+    {root}/{domain_name}
+    +-- acct
+    |   +-- acct.pem
+    +-- chall_http
+    |   +-- {http_chall_token}
+    |   +-- ...
+    +-- cert
+    |   +-- cert.key
+    |   +-- chain.pem
+    |   +-- fullchain.pem
+    +-- backup
+    |   +-- bak_{date_time}.zip
+    |   +-- ...
+    ```
+    multiple domains will be concatenated and placed under one directory
+    """
+    d = '_'.join(domains)
+    wd_path = Path(wd).expanduser().absolute() / d
+    if not wd_path.exists():
+        wd_path.mkdir(parents=True, exist_ok=True)
+        (wd_path / WD_ACCT).mkdir()
+        (wd_path / WD_HTTP01).mkdir()
+        (wd_path / WD_CERT).mkdir()
+        (wd_path / WD_BAK).mkdir()
+        acme_http = Path('.well-known/acme-challenge')
+        (wd_path / WD_HTTP01 / acme_http).mkdir(parents=True)
+        print(f'workding directory {wd_path!s} created')
+    else:
+        print(f'workding directory {wd_path!s} exists')
+    return d
+
+
+def main_param_parser(args: Namespace) -> dict:
+    """parse params passed to `main()`, assign proper default value if needed"""
+
+    # TODO first check if input domains are valid
+
+    # TODO only support 2 domains at most for now
+    if len(args.domain) > 2:
+        raise ValueError('domain count more than 2 is not supported yet')
+
+    joined_domain = check_path(args.working_directory, args.domain)
+
+    param_dict = dict()
+
+    # wildcard domain only available for dns mode
+    param_dict['domains'] = args.domain
+    for d in args.domain:
+        if '*' in d:
+            param_dict['mode'] = 'dns'
+            break
+    else:
+        param_dict['mode'] = args.mode
+    
+    # create new acct key if not exist in working dir
+    wd = Path(args.working_directory).expanduser().absolute() / joined_domain
+    if not args.account_private_key:
+        key_path = Path(wd) / WD_ACCT / KEY_ACCT
+        if not key_path.exists():
+            generate_rsa_privkey(
+                str(key_path.parent), 
+                keysize=KEY_SIZE, 
+                key_name=KEY_ACCT
+            )
+            print(f'new account private key generated at {key_path}')
+        else:
+            print(f'use existed account private key at {key_path}')
+        param_dict['acct_priv_key'] = str(key_path)
+    else:
+        param_dict['acct_priv_key'] = args.account_private_key
+        print(f'use user given account key at {args.account_private_key}')
+
+    # parse param for cert_path and chall_path
+    param_dict['cert_path'] = str(wd / WD_CERT)
+    param_dict['chall_path'] = str(wd / WD_HTTP01)
+            
+    # parse subject names string for CSR, append country code to csr_dict
+    csr_dict = {'C': args.country_code}
+    if args.csr_subjects:
+        csr_list = args.csr_subjects.split(',')
+        csr_dict.update({i[0]:i[1] for i in [j.split('=') for j in csr_list]})
+    param_dict['subject_names'] = csr_dict
+
+    # parse dns specifics
+    dns_dict = dict()
+    if args.dns_specifics:
+        dns_list = args.dns_specifics.split(',')
+        dns_dict = {i[0]:i[1] for i in [j.split('=') for j in dns_list]}
+    param_dict['dns_specifics'] = dns_dict
+
+    
+    # direct pass params
+    key_list = [
+        'contact',
+        'not_before',
+        'not_after',
+        'dnsprovider',
+        'access_key',
+        'secret',
+        'CA_entry',
+        'poll_interval',
+        'poll_retry_count',
+        'csr_priv_key_type',
+        'csr_priv_key_size',
+        'chall_resp_server_port', 
+        'no_ssl_verify'
+    ]
+    for key in key_list:
+        param_dict[key] = getattr(args, key)
+
+    return param_dict
