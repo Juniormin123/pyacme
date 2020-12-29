@@ -7,12 +7,15 @@ from multiprocessing import Process
 import time
 import argparse
 
-from pyacme.util import generate_rsa_privkey, get_keyAuthorization, parse_csr, \
+from pyacme.util import check_path, generate_rsa_privkey, \
+                        get_keyAuthorization, \
+                        main_param_parser, parse_csr, \
                         run_http_server, jwk_factory
 from pyacme.ACMEobj import ACMEAccount, ACMEAuthorization, ACMEOrder
 from pyacme.actions import ACMEAccountActions
 from pyacme.request import ACMERequestActions
 from pyacme.dnsprovider.dispatch import DNS01ChallengeRespondHandler
+from pyacme.settings import *
 
 
 def wait_for_server_stop(p: Process) -> None:
@@ -45,11 +48,19 @@ def http_chall(order_obj: ACMEOrder,
     return order_obj.auth_objs
 
 
-def main_finalize(order, subject_names, cert_path, csr_priv_key_type):
+def main_finalize(order, 
+                  subject_names, 
+                  cert_path, 
+                  csr_priv_key_type,
+                  csr_priv_key_size):
     order.poll_order_state()
     if order.status == 'ready':
         if csr_priv_key_type.lower() == 'rsa':
-            csr_privkey = generate_rsa_privkey(cert_path)
+            csr_privkey = generate_rsa_privkey(
+                privkey_dir=cert_path,
+                keysize=csr_priv_key_size,
+                key_name=CSR_KEY_NAME
+            )
         else:
             raise ValueError(
                 f'not supported csr key type {csr_priv_key_type}'
@@ -88,7 +99,8 @@ def main_download_cert(order, cert_path):
         raise ValueError(f'order state "{order.status}" != "valid"')
 
 
-def main(domains: List[str], 
+def main(*,
+         domains: List[str], 
          contact: List[str],
          acct_priv_key: str, 
          not_before: str,
@@ -106,18 +118,17 @@ def main(domains: List[str],
          poll_retry_count: int,
          csr_priv_key_type: str,
          csr_priv_key_size: int,
-         chall_resp_server_port: int = 80) -> None:
+         chall_resp_server_port: int,
+         no_ssl_verify: bool) -> None:
 
-    # wildcard domain only available for dns mode
-    for d in domains:
-        if '*' in d:
-            mode = 'dns'
-            break
-    
+    if no_ssl_verify:
+        ACMERequestActions.verify = False
+
     # set url for CA 
     ACMERequestActions.set_directory_url(CA_entry)
     ACMERequestActions.query_dir()
     req = ACMERequestActions()
+    req.new_nonce()
     # init key object
     jwk = jwk_factory(acct_priv_key)
     # init acct action
@@ -128,9 +139,9 @@ def main(domains: List[str],
         contact=contact
     )
     if acct._resp.status_code == 200:
-        print('account created')
-    elif acct._resp.status_code == 201:
         print('account existed and fetched')
+    elif acct._resp.status_code == 201:
+        print('new account created')
     # create new order for domains
     order = acct.new_order(
         identifiers=domains,
@@ -160,7 +171,10 @@ def main(domains: List[str],
             server_p.terminate()
             
             # finalize order
-            main_finalize(order, subject_names, cert_path, csr_priv_key_type)
+            main_finalize(
+                order, subject_names, cert_path, 
+                csr_priv_key_type, csr_priv_key_size
+            )
             main_download_cert(order, cert_path)
             wait_for_server_stop(server_p)
 
@@ -187,7 +201,10 @@ def main(domains: List[str],
             print('all authorizaitons valid, clearing dns record')
             handler.clear_dns_record()
             # finalize order
-            main_finalize(order, subject_names, cert_path, csr_priv_key_type)
+            main_finalize(
+                order, subject_names, cert_path, 
+                csr_priv_key_type, csr_priv_key_size
+            )
             main_download_cert(order, cert_path)
             
             print('dns mode all done')
@@ -197,8 +214,6 @@ def main(domains: List[str],
             raise e
     else:
         raise ValueError(f'not supported mode {mode}')
-
-
 
 
 if __name__ == '__main__':
@@ -285,62 +300,79 @@ if __name__ == '__main__':
         '--domain',
         required=True,
         action='append',
-        help='FDQN, international domain should use punycode; '
+        help='Required, FDQN, international domain should use punycode; '
              'use multiple `-d` to provide more than one domains.'
     )
     parser.add_argument(
         '-c',
         '--contact',
         action='append',
-        help="domain holder's email address for CA to send notification, "
-             'use multiple `-c` to provide more than one contact email.'
+        help="Optional if acctount exists in workding directory; "
+             "domain holder's email address for CA to send "
+             "notification, use multiple `-c` to provide more than one "
+             "contact email."
     )
     parser.add_argument(
         '-C',
         '--country_code',
         required=True,
-        help='two-digit country code, e.g. CN'
+        help='Required, two-digit country code, e.g. CN'
+    )
+    parser.add_argument(
+        '--csr_subjects',
+        help='key=value string to csr values besisdes C and CN, '
+             'e.g. "ST=State,L=Locality,O=test Org,emailAddres=test@email.org"'
     )
     parser.add_argument(
         '--account_private_key',
-        help='Optional, absolute path to a pem private key file. '
+        help='absolute path to a pem private key file. '
              'RSA key size must be larger than 2048 and multiple of 4'
     )
     parser.add_argument(
         '--not_before',
-        help='Optional, a date time string, acme order will not be availabe '
+        help='a date time string, acme order will not be availabe '
              'before this time'
     )
     parser.add_argument(
         '--not_after',
-        help='Optional, a date time string, acme order will not be availabe '
+        help='a date time string, acme order will not be availabe '
              'after this time'
     )
+    # parser.add_argument(
+    #     '--cert_path',
+    #     default='~/.pyacme',
+    #     help='Optional, absolute path to where certificates will be saved, '
+    #          r'default path is ~/.pyacme/{domain_name}/cert'
+    # )
+    # parser.add_argument(
+    #     '--chall_path',
+    #     help='Optional, absolute path to where http-01 challenge respond files '
+    #          'will be served by a http server. default is '
+    #          r'~/.pyacme/{domain_name}/chall_http'
+    # )
     parser.add_argument(
-        '--cert_path',
-        default='~/.pyacme',
-        help='Optional, absolute path to where certificates will be saved, '
-             r'default path is ~/.pyacme/{domain_name}/cert'
-    )
-    parser.add_argument(
-        '--chall_path',
-        help='Optional, absolute path to where http-01 challenge respond files '
-             'will be served by a http server. default is '
-             r'~/.pyacme/{domain_name}/chall_http'
+        '-w',
+        '--working_directory',
+        default=WD_DEFAULT,
+        help=f'dafault is {WD_DEFAULT} ; '
+             f'cert can be found at working_directroy/{WD_CERT}'
     )
     parser.add_argument(
         '-m',
         '--mode',
-        choices=['http', 'dns'],
-        default='dns',
-        help='Optional, decide how to complete acme challenge, default "dns"; '
+        choices=MODES_SUPPORTED,
+        default=MODES_DEFAULT,
+        help='decide how to complete acme challenge, '
+             f'default "{MODES_DEFAULT}"; '
              'root privilege needed for "http" mode'
     )
     parser.add_argument(
-        '--dns_provider',
-        choices=['aliyun'],
-        default='aliyun',
-        help='Optional, select one dnsprovider, default "aliyun"'
+        '--dnsprovider',
+        choices=DNS_PROVIDERS,
+        default=DNS_DEFAULT_PROVIDER,
+        help='select one dnsprovider, '
+             f'current support following providers {DNS_PROVIDERS}, '
+             f'default provider {DNS_DEFAULT_PROVIDER}'
     )
     parser.add_argument(
         '-k',
@@ -357,30 +389,32 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--dns_specifics',
-        action='append',
-        help='Optional, for certain dnsproviders, pass "key=value" '
+        help='for certain dnsproviders, pass string like '
+             '"key1=value1,key2=value2 ..."'
     )
     parser.add_argument(
         '--CA_entry',
-        help='Optional, url to a CA /directory, default is letsencrypt prod'
+        help=f'url to a CA /directory, default is {LETSENCRYPT_PRODUCTION}'
     )
     parser.add_argument(
         '--poll_interval',
         type=float,
-        default=5.0,
-        help='Optional, seconds between each authorization poll, default 3.0'
+        default=REQ_POLL_INTERVAL,
+        help='Optional, seconds between each authorization poll, '
+             f'default {REQ_POLL_INTERVAL}'
     )
     parser.add_argument(
         '--poll_retry_count',
         type=int,
-        default=24,
-        help='Optional, total count of authorization poll retry, default 24'
+        default=REQ_POLL_RETRY_COUNT,
+        help='total count of authorization poll retry, '
+             f'default {REQ_POLL_RETRY_COUNT}'
     )
     parser.add_argument(
         '--csr_priv_key_type',
         choices=['rsa'],
         default='rsa',
-        help='Optional, select key type to sign CSR, default "rsa"'
+        help='select key type to sign CSR, default "rsa"'
     )
     parser.add_argument(
         '--csr_priv_key_size',
@@ -391,11 +425,23 @@ if __name__ == '__main__':
     parser.add_argument(
         '--chall_resp_server_port',
         type=int,
-        default=80,
-        help='Optional, the port used when responding to http-01 challenge; '
-             'usually on port 80'
+        default=HTTP_SERVING_PORT,
+        help='the port used when responding to http-01 challenge; '
+             f'default on port {HTTP_SERVING_PORT}, root previlige needed'
+    )
+    parser.add_argument(
+        '--no_ssl_verify',
+        action='store_true',
+        help='disable ssl certificate verification when requesting acme '
+             'resources, default False'
     )
     args = parser.parse_args()
 
     # test
     print(args)
+
+    param_dict = main_param_parser(args)
+    # test
+    print(param_dict)
+
+    main(**param_dict)
