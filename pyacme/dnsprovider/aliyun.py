@@ -5,17 +5,16 @@ Install the following package:
 """
 
 import json
-from pyacme.ACMEobj import ACMEAuthorization
 
 from aliyunsdkcore.client import AcsClient
-from aliyunsdkcore.acs_exception.exceptions import ClientException
-from aliyunsdkcore.acs_exception.exceptions import ServerException
 from aliyunsdkalidns.request.v20150109.AddDomainRecordRequest \
     import AddDomainRecordRequest
 from aliyunsdkalidns.request.v20150109.DescribeDomainRecordInfoRequest \
     import DescribeDomainRecordInfoRequest
 from aliyunsdkalidns.request.v20150109.DeleteDomainRecordRequest \
     import DeleteDomainRecordRequest
+
+from .dnsproviderbase import _DNSProviderBase
 
 
 def create_client(access_key: str, secret: str, r = 'cn-hangzhou') -> AcsClient:
@@ -78,3 +77,38 @@ def del_domain_record_by_id(client: AcsClient, record_id: str) -> dict:
     request.set_RecordId(record_id)
     response = client.do_action_with_exception(request)
     return json.loads(str(response, encoding='utf-8'))
+
+
+class Handler(_DNSProviderBase):
+
+    def __init__(self, access_key: str, secret: str, *args, **kwargs) -> None:
+        self._aliyun_record_id = ''
+        self.access_key = access_key
+        self.secret =  secret
+
+    def add_txt_record(self, 
+                       identifier: str, 
+                       value: str, 
+                       *args, 
+                       **kwargs) -> None:
+        client = create_client(self.access_key, self.secret)
+        if "*" in identifier:
+            # if wildcard domain, remove "*"
+            identifier = identifier.split('*.', maxsplit=1)[1]
+        # aliyun takes non-punycode domain, change punycode back to literal
+        domain = bytes(identifier, encoding='utf-8').decode('idna')
+        resp_dict = add_dns_txt_record(
+            client=client, 
+            domain=domain,
+            rr='_acme-challenge',
+            value=value
+        )
+        self._aliyun_record_id = resp_dict['RecordId']
+    
+    def clear_dns_record(self, *args, **kwargs) -> None:
+        if self._aliyun_record_id:
+            client = create_client(self.access_key, self.secret)
+            del_domain_record_by_id(client, self._aliyun_record_id)
+            print(f'aliyun dns record {self._aliyun_record_id} cleared')
+        else:
+            print('no aliyun dns record cleared')
