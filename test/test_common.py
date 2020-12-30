@@ -141,11 +141,13 @@ def load_test_keys(*key_pair_path: Tuple[str, str]) -> T:
     return key_pairs
 
 
-def download_root_cert(root_cert_path, name = "pebble-root-cert.pem"):
+def download_root_cert(root_cert_path: str, 
+                       url: str = 'https://localhost:15000/roots/0',
+                       name = "pebble-root-cert.pem"):
     """download root cert from pebble container"""
     subprocess.run(
         [
-            'wget', 'https://localhost:15000/roots/0', 
+            'wget', url, 
             '--no-check-certificate',
             '-O', f'{root_cert_path/name!s}',
             '--quiet'
@@ -158,7 +160,7 @@ def openssl_verify(cert_path: Union[Path, str],
                    root_cert_path = CERT_DIR,
                    root_cert_name = "pebble-root-cert.pem"):
     """run `openssl verify` on downloaded cert"""
-    subprocess.run(
+    p = subprocess.run(
         [
             'openssl', 'verify',
             '-CAfile', f'{root_cert_path/root_cert_name!s}',
@@ -166,6 +168,7 @@ def openssl_verify(cert_path: Union[Path, str],
             str(cert_path)
         ]
     )
+    return p
 
 
 def add_host_entry(domains: List[str], addr: str) -> None:

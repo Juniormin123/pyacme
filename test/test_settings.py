@@ -37,6 +37,9 @@ PEBBLE_DOCKER_FILE = \
 PEBBLE_CONTAINER = 'pebble_pebble_1'
 PEBBLE_CHALLTEST_CONTAINER = 'pebble_challtestsrv_1'
 
+# staging root ca
+STAGING_ROOT_CA = 'https://letsencrypt.org/certs/fakelerootx1.pem'
+
 ## test
 # print(Path(__file__).parents[2])
 # print(__file__)

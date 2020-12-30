@@ -12,7 +12,7 @@ import sys
 # sys.path.append(str(Path(__file__).parents[0].absolute()))
 sys.path.append(str(Path(__file__).parents[1].absolute()))
 
-from pyacme.settings import CERT_CHAIN, CERT_NAME, WD_DEFAULT, WD_CERT
+from pyacme.settings import CERT_CHAIN, CERT_NAME, LETSENCRYPT_STAGING, WD_DEFAULT, WD_CERT
 from test_common import *
 
 
@@ -62,23 +62,45 @@ def subprocess_run_pyacme(**main_param) -> subprocess.CompletedProcess:
         run_arg += [param_dict[k], v]
     p = subprocess.run(
         run_arg,
-        capture_output=True,
+        # capture_output=True,
         # check=True
     )
     return p
 
 
-class SingleDomain(unittest.TestCase):
+def _common(self, params: dict, ca = 'pebble'):
+    self.p = subprocess_run_pyacme(**params)
+    self.assertEqual(self.p.returncode, 0)
+    if 'working_directory' in params:
+        wd = Path(params['working_directory']).expanduser().absolute()
+    else:
+        wd = Path(WD_DEFAULT).expanduser().absolute()
+    wd = wd / '_'.join(self.domain)
+    root_cert = 'pebble-root-cert.pem'
+    if ca == 'pebble':
+        download_root_cert(wd / WD_CERT)
+        root_cert = 'pebble-root-cert.pem'
+    elif ca == 'staging':
+        download_root_cert(wd / WD_CERT, STAGING_ROOT_CA, 'fake_root.pem')
+        root_cert = 'fake_root.pem'
+    verify_p = openssl_verify(
+        cert_path=wd / WD_CERT / CERT_NAME,
+        chain_path=wd / WD_CERT / CERT_CHAIN,
+        root_cert_path=wd / WD_CERT,
+        root_cert_name=root_cert
+    )
+    self.assertEqual(verify_p.returncode, 0)
+
+
+class IntegrationHttpMode(unittest.TestCase):
 
     def setUp(self) -> None:
         run_pebble_standalone_container()
         # add to host file manually if sudo is not intended
         self.domain = ['test-integration.local']
-        self.aliyun_ak = get_aliyun_access_key('test/.aliyun_dns_api.json')
     
     def test_http_run(self):
-        # add_host_entry(self.domain, '127.0.0.1')
-        self.p = subprocess_run_pyacme(
+        params = dict(
             domain=self.domain,
             contact=TEST_CONTACTS,
             country_code='UN',
@@ -87,16 +109,47 @@ class SingleDomain(unittest.TestCase):
             no_ssl_verify=True,
             chall_resp_server_port=PY_HTTPSERVER_PORT
         )
-        self.assertEqual(self.p.returncode, 0)
-        wd = Path(WD_DEFAULT).expanduser().absolute() / self.domain[0]
-        download_root_cert(wd / WD_CERT)
-        openssl_verify(
-            cert_path=wd / WD_CERT / CERT_NAME,
-            chain_path=wd / WD_CERT / CERT_CHAIN,
-            root_cert_path=wd / WD_CERT
+        _common(self, params)
+
+    def test_http_new_wd(self):
+        params = dict(
+            domain=self.domain,
+            contact=TEST_CONTACTS,
+            country_code='UN',
+            mode='http',
+            CA_entry=PEBBLE_TEST,
+            no_ssl_verify=True,
+            chall_resp_server_port=PY_HTTPSERVER_PORT,
+            working_directory='~/.pyacme/new'
         )
+        self._common(params)
 
     def tearDown(self) -> None:
         stop_pebble_standalone_container()
-        print(self.p.stderr.decode('utf-8'))
-        print(self.p.stdout.decode('utf-8'))
+        # print(self.p.stderr.decode('utf-8'))
+        # print(self.p.stdout.decode('utf-8'))
+
+
+class IntegrationDNSModeStaging(unittest.TestCase):
+
+    def setUp(self) -> None:
+        # run_pebble_standalone_container()
+        self.domain = ['test-staging.xn--jhqy4a5a064kimjf01df8e.host']
+        # self.domain = ['xn--jhqy4a5a064kimjf01df8e.host']
+        self.aliyun_ak = get_aliyun_access_key('test/.aliyun_dns_api.json')
+    
+    def test_dns_run(self):
+        params = dict(
+            domain=self.domain,
+            contact=TEST_CONTACTS,
+            country_code='UN',
+            CA_entry=LETSENCRYPT_STAGING,
+            no_ssl_verify=True,
+            access_key=self.aliyun_ak['access_key'],
+            secret=self.aliyun_ak['secret']
+        )
+        _common(self, params, ca='staging')
+
+    def tearDown(self) -> None:
+        # stop_pebble_standalone_container()
+        pass
