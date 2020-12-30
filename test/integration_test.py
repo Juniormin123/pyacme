@@ -54,9 +54,9 @@ def subprocess_run_pyacme(**main_param) -> subprocess.CompletedProcess:
         run_arg += ['-c', c]
     del main_param['contact']
 
-    if main_param['no_ssl_verify']:
+    if ('no_ssl_verify' in main_param) and main_param['no_ssl_verify']:
         run_arg += ['--no_ssl_verify']
-    del main_param['no_ssl_verify']
+        del main_param['no_ssl_verify']
 
     for k, v in main_param.items():
         run_arg += [param_dict[k], v]
@@ -135,6 +135,7 @@ class IntegrationDNSModeStaging(unittest.TestCase):
     def setUp(self) -> None:
         # run_pebble_standalone_container()
         self.domain = ['test-staging.xn--jhqy4a5a064kimjf01df8e.host']
+        self.wild_card_domain = ['*.xn--jhqy4a5a064kimjf01df8e.host']
         # self.domain = ['xn--jhqy4a5a064kimjf01df8e.host']
         self.aliyun_ak = get_aliyun_access_key('test/.aliyun_dns_api.json')
     
@@ -144,12 +145,18 @@ class IntegrationDNSModeStaging(unittest.TestCase):
             contact=TEST_CONTACTS,
             country_code='UN',
             CA_entry=LETSENCRYPT_STAGING,
-            no_ssl_verify=True,
             access_key=self.aliyun_ak['access_key'],
             secret=self.aliyun_ak['secret']
         )
         _common(self, params, ca='staging')
-
-    def tearDown(self) -> None:
-        # stop_pebble_standalone_container()
-        pass
+    
+    def test_dns_wildcard(self):
+        params = dict(
+            domain=self.wild_card_domain,
+            contact=TEST_CONTACTS,
+            country_code='UN',
+            CA_entry=LETSENCRYPT_STAGING,
+            access_key=self.aliyun_ak['access_key'],
+            secret=self.aliyun_ak['secret']
+        )
+        _common(self, params, ca='staging')
