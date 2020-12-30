@@ -42,9 +42,21 @@ def add_dns_txt_record(client: AcsClient,
     ```
     the record id will be used for later record removal
     """
+    domain_split = domain.split('.')
+    if len(domain_split) > 2:
+        # handle passed in domain like 'test.xn--jhqy4a5a064kimjf01df8e.host'
+        sub, primary = '.'.join(domain_split[:-2]), '.'.join(domain_split[-2:])
+        rr = rr + '.' + sub
+    else:
+        sub = ''
+        primary = domain
+
+    # TODO proper log
+    print(f'add dns record {rr=} {sub=} {primary=} {value=}')
+
     request = AddDomainRecordRequest()
     request.set_accept_format('json')
-    request.set_DomainName(domain)
+    request.set_DomainName(primary)
     request.set_RR(rr)
     request.set_Value(value)
     request.set_Type("TXT")
