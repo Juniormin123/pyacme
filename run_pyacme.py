@@ -48,11 +48,11 @@ def http_chall(order_obj: ACMEOrder,
     return order_obj.auth_objs
 
 
-def main_finalize(order, 
-                  subject_names, 
-                  cert_path, 
-                  csr_priv_key_type,
-                  csr_priv_key_size):
+def main_finalize(order: ACMEOrder, 
+                  subject_names: Dict[str, str], 
+                  cert_path: str, 
+                  csr_priv_key_type: int,
+                  csr_priv_key_size: int):
     order.poll_order_state()
     if order.status == 'ready':
         if csr_priv_key_type.lower() == 'rsa':
@@ -75,12 +75,18 @@ def main_finalize(order,
         raise ValueError(f'order state "{order.status}" != "ready"')
 
 
-def main_poll_order_state(auths, poll_interval, poll_retry_count):
+def main_poll_order_state(auths: List[ACMEAuthorization], 
+                          poll_interval: float, 
+                          poll_retry_count: int):
     # loop and poll the order state
     while poll_retry_count > 0:
         print('polling for authorization ...')
         for auth in auths:
             auth.poll_auth_state()
+            if auth.status == 'invalid':
+                raise ValueError(
+                    f'authorization for domain {auth.identifier_value} invalid'
+                )
             if auth.status != 'valid':
                 break
         else:
