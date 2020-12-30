@@ -4,10 +4,12 @@ import socketserver
 import subprocess
 import hashlib
 import json
+import time
 from argparse import Namespace
 from http.server import SimpleHTTPRequestHandler
 from typing import List, Union
 from pathlib import Path
+from zipfile import ZipFile
 
 from cryptography import x509
 from cryptography.x509.oid import NameOID
@@ -234,6 +236,18 @@ def jwk_factory(acct_priv_key: str) -> _JWKBase:
         return jwk
 
 
+def backup_certs(cert_path: str, backup_path: str) -> None:
+    if not list(Path(cert_path).iterdir()):
+        print('no backup performed')
+        return
+    date_time = time.strftime(BAK_TIME_FMT, time.localtime())
+    bak_zip_name = BAK_DEFAULT_PATTERN.format(date_time=date_time)
+    with ZipFile(Path(backup_path)/bak_zip_name, 'w') as zip_f:
+        for f in Path(cert_path).iterdir():
+            zip_f.write(str(f))
+    print(f'certificates backup zipped to {Path(backup_path)/bak_zip_name}')
+
+
 def check_path(wd: str, domains: List[str]) -> str:
     """
     for default file structure, `root="~/.pyacme"`; may be subsitituted by user
@@ -329,7 +343,6 @@ def main_param_parser(args: Namespace) -> dict:
         dns_dict = {i[0]:i[1] for i in [j.split('=') for j in dns_list]}
     param_dict['dns_specifics'] = dns_dict
 
-    
     # direct pass params
     key_list = [
         'contact',
@@ -348,5 +361,8 @@ def main_param_parser(args: Namespace) -> dict:
     ]
     for key in key_list:
         param_dict[key] = getattr(args, key)
+    
+    # backup old cert files if exist
+    backup_certs(str(wd/WD_CERT), str(wd/WD_BAK))
 
     return param_dict
