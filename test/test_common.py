@@ -141,7 +141,7 @@ def load_test_keys(*key_pair_path: Tuple[str, str]) -> T:
     return key_pairs
 
 
-def download_root_cert(root_cert_path: str, 
+def download_root_cert(root_cert_path: Path, 
                        url: str = 'https://localhost:15000/roots/0',
                        name = "pebble-root-cert.pem"):
     """download root cert from pebble container"""

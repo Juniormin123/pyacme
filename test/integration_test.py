@@ -1,11 +1,9 @@
 
-from run_pyacme import main
 from typing import Dict, List
 from pathlib import Path
 import json
 import subprocess
 import unittest
-import time
 
 # for running this file directly
 import sys
@@ -122,7 +120,7 @@ class IntegrationHttpMode(unittest.TestCase):
             chall_resp_server_port=PY_HTTPSERVER_PORT,
             working_directory='~/.pyacme/new'
         )
-        self._common(params)
+        _common(self, params)
 
     def tearDown(self) -> None:
         stop_pebble_standalone_container()
