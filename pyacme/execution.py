@@ -352,3 +352,16 @@ def main(*,
     else:
         raise ValueError(f'not supported mode {mode}')
 
+
+def main_entry_point():
+    args = main_add_args()
+
+    # test
+    print(args)
+
+    param_dict = main_param_parser(args)
+
+    # test
+    print(param_dict)
+
+    main(**param_dict)
