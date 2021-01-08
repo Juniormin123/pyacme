@@ -1,12 +1,16 @@
 from typing import Dict, Any
 import json
-import time
+import logging
 
 import requests
 
 from pyacme.settings import LETSENCRYPT_STAGING
 from pyacme.base import _JWSBase, _ACMERequestBase
 from pyacme.exceptions import ACMEError
+
+
+logger = logging.getLogger(__name__)
+debug = logger.debug
 
 
 class Nonce:
@@ -104,8 +108,7 @@ class ACMERequestActions(_ACMERequestBase):
             e = ACMEError(resp)
             if e.type == 'badNonce':
                 count += 1
-                # TODO proper log
-                print(f'badNonce, retry for {count} time')
+                debug(f'badNonce, retry for {count} time')
                 resp = _retry_for_badNonce(e)
             else:
                 # do not retry if error type is not badNonce

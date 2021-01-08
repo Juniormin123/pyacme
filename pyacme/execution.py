@@ -3,6 +3,7 @@ from pathlib import Path
 from multiprocessing import Process
 import time
 import argparse
+import logging
 
 from pyacme.util import generate_rsa_privkey, get_keyAuthorization, \
                         main_param_parser, run_http_server, jwk_factory
@@ -13,12 +14,17 @@ from pyacme.dnsprovider.dispatch import DNS01ChallengeRespondHandler
 from pyacme.settings import *
 
 
+logger = logging.getLogger(__name__)
+debug = logger.debug
+info = logger.info
+
+
 def wait_for_server_stop(p: Process) -> None:
     while True:
         if not p.is_alive():
             break
         time.sleep(0.5)
-    print('server stopped')
+    info(f'server on process {p.pid} stopped')
 
 
 def http_chall(order_obj: ACMEOrder, 
@@ -29,7 +35,7 @@ def http_chall(order_obj: ACMEOrder,
     base_path = Path(chall_path).absolute() / '.well-known' / 'acme-challenge'
     for auth in order_obj.auth_objs:
         if auth.chall_http.status == 'valid':
-            print(f'challenge for {auth.identifier_value} is already valid')
+            info(f'challenge for {auth.identifier_value} is already valid')
             continue
         # create repond text for each auth http challenge
         chall_text = get_keyAuthorization(
@@ -39,7 +45,7 @@ def http_chall(order_obj: ACMEOrder,
         with open(base_path/auth.chall_http.token, 'w') as f:
             f.write(chall_text)
         auth.chall_http.respond()
-        print(f'respond to http challenge for {auth.identifier_value}')
+        info(f'respond to http challenge for {auth.identifier_value}')
     return order_obj.auth_objs
 
 
@@ -65,7 +71,8 @@ def main_finalize(order: ACMEOrder,
             engine='cryptography',
             **subject_names
         )
-        print('order finalized')
+        debug(str(order))
+        info('order finalized')
     else:
         raise ValueError(f'order state "{order.status}" != "ready"')
 
@@ -75,7 +82,7 @@ def main_poll_order_state(auths: List[ACMEAuthorization],
                           poll_retry_count: int):
     # loop and poll the order state
     while poll_retry_count > 0:
-        print('polling for authorization ...')
+        info('polling for authorization ...')
         for auth in auths:
             auth.poll_auth_state()
             if auth.status == 'invalid':
@@ -91,11 +98,12 @@ def main_poll_order_state(auths: List[ACMEAuthorization],
         time.sleep(poll_interval)
 
 
-def main_download_cert(order, cert_path):
+def main_download_cert(order: ACMEOrder, cert_path):
     order.poll_order_state()
     if order.status == 'valid':
         order.download_certificate(cert_path)
-        print(f'certificates download to {cert_path}')
+        debug(str(order))
+        info(f'certificates download to {cert_path}')
     else:
         raise ValueError(f'order state "{order.status}" != "valid"')
 
@@ -275,17 +283,19 @@ def main(*,
         acct_actions=acct_action,
         contact=contact
     )
+    debug(str(acct))
     if acct._resp.status_code == 200:
-        print('account existed and fetched')
+        info('account existed and fetched')
     elif acct._resp.status_code == 201:
-        print('new account created')
+        info('new account created')
     # create new order for domains
     order = acct.new_order(
         identifiers=domains,
         not_after=not_after,
         not_before=not_before
     )
-    print(f'order created {domains}')
+    debug(str(order))
+    info(f'order created {domains}')
 
 
     if mode == 'http':
@@ -298,13 +308,14 @@ def main(*,
         server_p.start()
         try:
             auths = http_chall(order, chall_path=chall_path)
-            print('http challenge responded')
+            for a in auths: debug(str(a))
+            info('http challenge responded')
 
             # loop and poll the order state
             main_poll_order_state(auths, poll_interval, poll_retry_count)
 
             # do not stop server in `for else` above to avoid deadlock
-            print('all authorizaitons valid, stopping server')
+            info('all authorizaitons valid, stopping server')
             server_p.terminate()
             
             # finalize order
@@ -315,9 +326,9 @@ def main(*,
             main_download_cert(order, cert_path)
             wait_for_server_stop(server_p)
 
-            print('http mode all done')
+            info('http mode all done')
         except Exception as e:
-            print('stopping server due to exception')
+            logger.warning('stopping server due to exception')
             server_p.terminate()
             wait_for_server_stop(server_p)
             raise e
@@ -332,10 +343,10 @@ def main(*,
         )
         try:
             auths = handler.dns_chall_respond()
-            print('dns challenge responded')
+            info('dns challenge responded')
             # loop and poll the order state
             main_poll_order_state(auths, poll_interval, poll_retry_count)
-            print('all authorizaitons valid, clearing dns record')
+            info('all authorizaitons valid, clearing dns record')
             handler.clear_dns_record()
             # finalize order
             main_finalize(
@@ -344,9 +355,9 @@ def main(*,
             )
             main_download_cert(order, cert_path)
             
-            print('dns mode all done')
+            info('dns mode all done')
         except Exception as e:
-            print('removing dns record due to exception')
+            logger.warning('removing dns record due to exception')
             handler.clear_dns_record()
             raise e
     else:
@@ -355,13 +366,7 @@ def main(*,
 
 def main_entry_point():
     args = main_add_args()
-
-    # test
-    print(args)
-
+    debug(args)
     param_dict = main_param_parser(args)
-
-    # test
-    print(param_dict)
-
+    debug(param_dict)
     main(**param_dict)

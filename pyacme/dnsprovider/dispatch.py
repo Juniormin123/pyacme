@@ -1,9 +1,15 @@
 from typing import List, Type
+import logging
 
 from ..ACMEobj import ACMEOrder, ACMEAuthorization
 from ..util import get_dns_chall_txt_record
 from .dnsproviderbase import _DNSProviderBase
 from . import aliyun
+
+
+logger = logging.getLogger(__name__)
+info = logger.info
+debug = logger.debug
 
 
 class DNS01ChallengeRespondHandler:
@@ -32,7 +38,7 @@ class DNS01ChallengeRespondHandler:
         """add dns-01 respond to selected dns provider"""
         for auth in self.order_obj.auth_objs:
             if auth.chall_dns.status == 'valid':
-                print(f'challenge for {auth.identifier_value} is already valid')
+                info(f'challenge for {auth.identifier_value} is already valid')
                 continue
             value = get_dns_chall_txt_record(
                 token=auth.chall_dns.token,
@@ -40,7 +46,7 @@ class DNS01ChallengeRespondHandler:
             )
             self.handler.add_txt_record(auth.identifier_value, value)
             auth.chall_dns.respond()
-            print(f'respond to dns challenge for {auth.identifier_value}')
+            info(f'respond to dns challenge for {auth.identifier_value}')
         return self.order_obj.auth_objs
     
     def clear_dns_record(self) -> None:

@@ -43,3 +43,8 @@ REQ_POLL_RETRY_COUNT: int = 24
 # backup related
 BAK_TIME_FMT = '%Y_%m_%d_%H_%M_%S'
 BAK_DEFAULT_PATTERN = 'bak_{date_time}.zip'
+
+# logging
+LOG_LEVEL = 20    # INFO
+LOG_FMT = '[{asctime!s}][{name!s}][{levelname!s}] {msg}'
+LOG_DEBUG_FMT = '[{asctime!s}][{name!s}][{levelname!s}] {funcName!s}: {msg}'
