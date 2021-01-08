@@ -193,7 +193,8 @@ def parse_csr(privkey: Union[rsa.RSAPrivateKey, str],
         return create_csr_openssl(privkey, domains, extra, **subjects)
     else:
         raise ValueError(
-            f'unrecognized csr parser args "{engine=}" and "{privkey=}"'
+            f'unrecognized csr parser args '
+            f'engine={engine} and privkey={privkey}'
         )
 
 def save_cert(cert_resp: requests.Response, cert_dir: str) -> requests.Response:

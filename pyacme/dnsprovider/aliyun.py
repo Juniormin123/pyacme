@@ -56,7 +56,7 @@ def add_dns_txt_record(client: AcsClient,
         sub = ''
         primary = domain
 
-    debug(f'add dns record {rr=} {sub=} {primary=} {value=}')
+    debug(f'add dns record rr={rr} sub={sub} primary={primary} value={value}')
 
     request = AddDomainRecordRequest()
     request.set_accept_format('json')
