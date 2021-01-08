@@ -1,5 +1,5 @@
 import base64
-
+import logging
 import socketserver
 import subprocess
 import hashlib
@@ -22,6 +22,31 @@ import requests
 from pyacme.base import _JWKBase
 from pyacme.jwk import JWKRSA
 from pyacme.settings import *
+
+
+# only handle log record with level DEBUG
+debug_hd = logging.StreamHandler()
+debug_hd.setFormatter(logging.Formatter(LOG_DEBUG_FMT, style='{'))
+debug_hd.setLevel(logging.DEBUG)
+debug_hd.addFilter(lambda r: r.levelno == logging.DEBUG)
+
+# handle log level INFO and above
+info_hd = logging.StreamHandler()
+info_hd.setFormatter(logging.Formatter(LOG_FMT, style='{'))
+info_hd.setLevel(LOG_LEVEL)
+
+base_logger = logging.getLogger('pyacme')
+base_logger.addHandler(debug_hd)
+base_logger.addHandler(info_hd)
+base_logger.setLevel(LOG_LEVEL)
+
+logger = logging.getLogger(__name__)
+info = logger.info
+
+
+# test logging
+# def info_test(msg): info(msg)
+# def debug_test(msg): logger.debug(msg)
 
 
 def get_keyAuthorization(token: str, jwk: _JWKBase) -> str:
@@ -207,8 +232,8 @@ def run_http_server(path: Union[Path, str], port = 80) -> None:
 
     with socketserver.TCPServer(('', port), Handler) as httpd:
         try:
-            # TODO proper log
-            print(f'serving at port {port}')
+            # print(f'serving at port {port}')
+            info(f'serving at port {port}')
             httpd.serve_forever()
         except KeyboardInterrupt:
             httpd.server_close()
@@ -238,14 +263,15 @@ def jwk_factory(acct_priv_key: str) -> _JWKBase:
 
 def backup_certs(cert_path: str, backup_path: str) -> None:
     if not list(Path(cert_path).iterdir()):
-        print('no backup performed')
+        # print('no backup performed')
+        info('no backup performed')
         return
     date_time = time.strftime(BAK_TIME_FMT, time.localtime())
     bak_zip_name = BAK_DEFAULT_PATTERN.format(date_time=date_time)
     with ZipFile(Path(backup_path)/bak_zip_name, 'w') as zip_f:
         for f in Path(cert_path).iterdir():
             zip_f.write(str(f))
-    print(f'certificates backup zipped to {Path(backup_path)/bak_zip_name}')
+    info(f'certificates backup zipped to {Path(backup_path)/bak_zip_name}')
 
 
 def check_path(wd: str, domains: List[str]) -> str:
@@ -279,9 +305,9 @@ def check_path(wd: str, domains: List[str]) -> str:
         (wd_path / WD_BAK).mkdir()
         acme_http = Path('.well-known/acme-challenge')
         (wd_path / WD_HTTP01 / acme_http).mkdir(parents=True)
-        print(f'workding directory {wd_path!s} created')
+        info(f'workding directory {wd_path!s} created')
     else:
-        print(f'workding directory {wd_path!s} exists')
+        info(f'workding directory {wd_path!s} exists')
     return d
 
 
@@ -317,13 +343,13 @@ def main_param_parser(args: Namespace) -> dict:
                 keysize=KEY_SIZE, 
                 key_name=KEY_ACCT
             )
-            print(f'new account private key generated at {key_path}')
+            info(f'new account private key generated at {key_path}')
         else:
-            print(f'use existed account private key at {key_path}')
+            info(f'use existed account private key at {key_path}')
         param_dict['acct_priv_key'] = str(key_path)
     else:
         param_dict['acct_priv_key'] = args.account_private_key
-        print(f'use user given account key at {args.account_private_key}')
+        info(f'use user given account key at {args.account_private_key}')
 
     # parse param for cert_path and chall_path
     param_dict['cert_path'] = str(wd / WD_CERT)
