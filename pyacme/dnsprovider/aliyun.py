@@ -115,5 +115,7 @@ class Handler(_DNSProviderBase):
             client = create_client(self.access_key, self.secret)
             del_domain_record_by_id(client, self._aliyun_record_id)
             info(f'aliyun dns record {self._aliyun_record_id} cleared')
+            # reset aliyun record id to prevent multiple clear
+            self._aliyun_record_id = ''
         else:
             info('no aliyun dns record cleared')
