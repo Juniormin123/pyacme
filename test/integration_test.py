@@ -56,6 +56,10 @@ def subprocess_run_pyacme(**main_param) -> subprocess.CompletedProcess:
         run_arg += ['--no_ssl_verify']
         del main_param['no_ssl_verify']
 
+    if ('debug' in main_param) and main_param['debug']:
+        run_arg += ['--debug']
+        del main_param['debug']
+
     for k, v in main_param.items():
         run_arg += [param_dict[k], v]
     p = subprocess.run(
@@ -106,6 +110,19 @@ class IntegrationHttpMode(unittest.TestCase):
             CA_entry=PEBBLE_TEST,
             no_ssl_verify=True,
             chall_resp_server_port=PY_HTTPSERVER_PORT
+        )
+        _common(self, params)
+
+    def test_http_run_debug_output(self):
+        params = dict(
+            domain=self.domain,
+            contact=TEST_CONTACTS,
+            country_code='UN',
+            mode='http',
+            CA_entry=PEBBLE_TEST,
+            no_ssl_verify=True,
+            chall_resp_server_port=PY_HTTPSERVER_PORT,
+            debug=True
         )
         _common(self, params)
 

@@ -240,6 +240,18 @@ def main_add_args() -> argparse.Namespace:
         help='disable ssl certificate verification when requesting acme '
              'resources, default False'
     )
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='set this option to output debug message'
+    )
+
+    from pyacme import __version__
+    parser.add_argument(
+        '--version',
+        action='version',
+        version='%(prog)s ' + f'{__version__}'
+    )
     args = parser.parse_args()
     return args
 

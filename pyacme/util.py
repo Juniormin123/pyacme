@@ -313,7 +313,14 @@ def check_path(wd: str, domains: List[str]) -> str:
 
 
 def main_param_parser(args: Namespace) -> dict:
-    """parse params passed to `main()`, assign proper default value if needed"""
+    """
+    parse params passed to `main()`, assign proper default value if needed;
+    perform `check_path()` at the end of this parser;
+    arg `--debug` is not included here
+    """
+    # set logging level
+    if args.debug:
+        logging.getLogger('pyacme').setLevel(logging.DEBUG)
 
     # TODO first check if input domains are valid
 
