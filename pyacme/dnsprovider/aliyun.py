@@ -5,6 +5,7 @@ Install the following package:
 """
 
 import json
+import logging
 
 from aliyunsdkcore.client import AcsClient
 from aliyunsdkalidns.request.v20150109.AddDomainRecordRequest \
@@ -15,6 +16,11 @@ from aliyunsdkalidns.request.v20150109.DeleteDomainRecordRequest \
     import DeleteDomainRecordRequest
 
 from .dnsproviderbase import _DNSProviderBase
+
+
+logger = logging.getLogger(__name__)
+info = logger.info
+debug = logger.debug
 
 
 def create_client(access_key: str, secret: str, r = 'cn-hangzhou') -> AcsClient:
@@ -50,8 +56,7 @@ def add_dns_txt_record(client: AcsClient,
         sub = ''
         primary = domain
 
-    # TODO proper log
-    print(f'add dns record {rr=} {sub=} {primary=} {value=}')
+    debug(f'add dns record {rr=} {sub=} {primary=} {value=}')
 
     request = AddDomainRecordRequest()
     request.set_accept_format('json')
@@ -109,6 +114,6 @@ class Handler(_DNSProviderBase):
         if self._aliyun_record_id:
             client = create_client(self.access_key, self.secret)
             del_domain_record_by_id(client, self._aliyun_record_id)
-            print(f'aliyun dns record {self._aliyun_record_id} cleared')
+            info(f'aliyun dns record {self._aliyun_record_id} cleared')
         else:
-            print('no aliyun dns record cleared')
+            info('no aliyun dns record cleared')
