@@ -110,11 +110,12 @@ def create_csr(privkey: rsa.RSAPrivateKey,
                OU = '', 
                emailAddress = '') -> bytes:
     """
-    generate csr using `cryptography.x509`
+    generate csr using `cryptography.x509`;
     """
     csr = x509.CertificateSigningRequestBuilder()
     # cn = ','.join([f'DNS:{d}' for d in domains])
-    cn = ','.join(domains)
+    # cn = ','.join(domains)
+    cn = domains[0]
     csr = csr.subject_name(
         x509.Name(
             [
@@ -275,6 +276,41 @@ def backup_certs(cert_path: str, backup_path: str) -> None:
     info(f'certificates backup zipped to {Path(backup_path)/bak_zip_name}')
 
 
+def domains_check(domains: List[str]) -> List[str]:
+    """
+    all input domains should have the same primary, 
+    e.g.
+     * `example.com`, `a.example.com` are valid
+     * `example.com`, `a.example1.com` are invalid
+     * `domains=["a.x.com", "b.x.com"]` will be converted to 
+     `["x.com", "a.x.com", "b.x.com"]`
+    if top-level like `example.com` is not given in `domains`, it will be 
+    added here
+    """
+    primary_set: List[str] = []
+    for d in domains:
+        primary = '.'.join(d.split('.')[-2:])
+        primary_set.append(primary)
+    if len(set(primary_set)) == 1:
+        primary = list(set(primary_set))[0]
+        # if top-level given by user but not in the first
+        if primary in domains:
+            # move primary to the first element in domains list
+
+            # domains_mod = [primary]
+            # for d in domains:
+            #     if d == primary:
+            #         continue
+            #     domains_mod.append(d)
+            domains_mod = sorted(domains, key=lambda s: len(s))
+            return domains_mod
+        else:
+            # if top-level is not given by user, add it to domains
+            return [primary] + domains
+    else:
+        raise ValueError(f'input domains {domains} have different top-level')
+
+
 def check_path(wd: str, domains: List[str]) -> str:
     """
     for default file structure, `root="~/.pyacme"`; may be subsitituted by user
@@ -322,18 +358,19 @@ def main_param_parser(args: Namespace) -> dict:
     if args.debug:
         logging.getLogger('pyacme').setLevel(logging.DEBUG)
 
-    # TODO first check if input domains are valid
+    # if len(args.domain) >= 2:
+        # raise ValueError('domain count more than 2 is not supported yet')
+        # domains = domains_check(args.domain)
+    domains = domains_check(args.domain)
 
-    # TODO only support 2 domains at most for now
-    if len(args.domain) > 2:
-        raise ValueError('domain count more than 2 is not supported yet')
-
+    # use original given domains for path creation
     joined_domain = check_path(args.working_directory, args.domain)
 
     param_dict = dict()
 
     # wildcard domain only available for dns mode
-    param_dict['domains'] = args.domain
+    # param_dict['domains'] = args.domain
+    param_dict['domains'] = domains
     for d in args.domain:
         if '*' in d:
             param_dict['mode'] = 'dns'
