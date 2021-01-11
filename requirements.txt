@@ -1,0 +1,4 @@
+requests
+cryptography >= 3.2.1
+aliyun-python-sdk-core
+aliyun-python-sdk-alidns
