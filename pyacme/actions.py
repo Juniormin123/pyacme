@@ -415,7 +415,7 @@ class ACMEAccountActions(_AcctActionBase):
                        privkey: Union[RSAPrivateKey, str],
                        domains: List[str],
                        subject_names: Dict[str, str],
-                       engine: str,
+                    #    engine: str,
                     #    jws_type: TJWS) -> List[ACMEOrder]:
                        jws_type: TJWS) -> requests.Response:
         """
@@ -432,7 +432,7 @@ class ACMEAccountActions(_AcctActionBase):
             # privkey_path=order_obj.related_acct.jwk_obj.priv_key_path,
             privkey=privkey,
             domains=domains,
-            engine=engine,
+            # engine=engine,
             **subject_names
         )
         csr_der_b = base64.urlsafe_b64encode(csr_der_output).strip(b'=')

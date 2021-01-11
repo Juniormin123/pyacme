@@ -138,48 +138,47 @@ def create_csr(privkey: rsa.RSAPrivateKey,
     return csr_signed.public_bytes(serialization.Encoding.DER)
 
 
-def create_csr_openssl(privkey_path: str, 
-                       domains: List[str], 
-                       extra: List[str] = [], 
-                       **subjects: str) -> bytes:
-    """
-    generate csr using `openssl req`, 
-    `domains` will be added to csr using `-addtext` option of openssl.
-    """
-    if subjects:
-        names = '/' + '/'.join([f'{k}={v}' for k, v in subjects.items()])
-    else:
-        names = ''
-    altnames = 'subjectAltName=' + ','.join([f'DNS:{d}' for d in domains])
-    # TODO figure out how to add CN with multiple domains
-    subj = f'/CN={",".join(domains)}' + names
-    # private key that is different from the account private key should be used
+# def create_csr_openssl(privkey_path: str, 
+#                        domains: List[str], 
+#                        extra: List[str] = [], 
+#                        **subjects: str) -> bytes:
+#     """
+#     generate csr using `openssl req`, 
+#     `domains` will be added to csr using `-addtext` option of openssl.
+#     """
+#     if subjects:
+#         names = '/' + '/'.join([f'{k}={v}' for k, v in subjects.items()])
+#     else:
+#         names = ''
+#     altnames = 'subjectAltName=' + ','.join([f'DNS:{d}' for d in domains])
+#     # TODO figure out how to add CN with multiple domains
+#     subj = f'/CN={",".join(domains)}' + names
+#     # private key that is different from the account private key should be used
 
-    output_p = subprocess.run(
-        [
-            'openssl', 'req', '-new', 
-            # '-key', privkey_path,
-            '-key', privkey_path,
-            '-outform', 'DER', 
-            '-subj', subj,
-            '-addext', altnames,
-            *extra
-        ],
-        capture_output=True,
-        check=True
-    )
-    output_b = output_p.stdout
-    return output_b
+#     output_p = subprocess.run(
+#         [
+#             'openssl', 'req', '-new', 
+#             # '-key', privkey_path,
+#             '-key', privkey_path,
+#             '-outform', 'DER', 
+#             '-subj', subj,
+#             '-addext', altnames,
+#             *extra
+#         ],
+#         capture_output=True,
+#         check=True
+#     )
+#     output_b = output_p.stdout
+#     return output_b
 
 
 def parse_csr(privkey: Union[rsa.RSAPrivateKey, str], 
               domains: List[str], 
-              extra: List[str] = [], 
-              engine: str = 'openssl',
+            #   extra: List[str] = [], 
+            #   engine: str = 'openssl',
               **subjects: str) -> bytes:
     """
-    ouput DER format bytes of a CSR, `C` is required for `engine="cryptography"`
-    subjects for csr list below:
+    ouput DER format bytes of a CSR, subjects for csr list below:
      * C = Country two-digit, like GB or US;
      * ST = State or Province
      * L  = Locality
@@ -188,15 +187,16 @@ def parse_csr(privkey: Union[rsa.RSAPrivateKey, str],
      * emailAddress = test@email.address
 
     """
-    if engine == 'cryptography' and isinstance(privkey, rsa.RSAPrivateKey):
-        return create_csr(privkey, domains, **subjects)
-    elif engine == 'openssl' and isinstance(privkey, str):
-        return create_csr_openssl(privkey, domains, extra, **subjects)
-    else:
-        raise ValueError(
-            f'unrecognized csr parser args '
-            f'engine={engine} and privkey={privkey}'
-        )
+    return create_csr(privkey, domains, **subjects)
+    # if engine == 'cryptography' and isinstance(privkey, rsa.RSAPrivateKey):
+    #     return create_csr(privkey, domains, **subjects)
+    # elif engine == 'openssl' and isinstance(privkey, str):
+    #     return create_csr_openssl(privkey, domains, extra, **subjects)
+    # else:
+    #     raise ValueError(
+    #         f'unrecognized csr parser args '
+    #         f'engine={engine} and privkey={privkey}'
+    #     )
 
 def save_cert(cert_resp: requests.Response, cert_dir: str) -> requests.Response:
     """

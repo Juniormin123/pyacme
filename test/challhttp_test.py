@@ -112,7 +112,7 @@ class StandaloneHttpChallengeTest(unittest.TestCase):
         # finalize order obj
         order_obj.finalize_order(
             privkey=self.priv_key_for_finalize,
-            engine='cryptography',
+            # engine='cryptography',
             C='CN',
             O='Test Org',
             emailAddress='test@email.local'

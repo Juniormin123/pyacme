@@ -474,19 +474,20 @@ class ACMEOrderCertificateTest(unittest.TestCase):
             # Path(_CERT_DIR/f'order_{i}').mkdir(parents=True, exist_ok=True)
             # i += 1
     
-    def _finalize_and_download_cert(self, engine: str):
+    def _finalize_and_download_cert(self):
         for i, order_obj in enumerate(self.order_objs):
             # only in "ready" state can an order be finalized
             self.assertEqual(order_obj.status, 'ready')
-            if engine == 'cryptography':
-                privkey = self.csr_privkey
-            elif engine == 'openssl':
-                privkey = f'{CERT_DIR/"certkey.key"!s}'
-            else:
-                raise ValueError
+            privkey = self.csr_privkey
+            # if engine == 'cryptography':
+            #     privkey = self.csr_privkey
+            # elif engine == 'openssl':
+            #     privkey = f'{CERT_DIR/"certkey.key"!s}'
+            # else:
+            #     raise ValueError
             order_obj.finalize_order(
                 privkey=privkey,
-                engine=engine,
+                # engine=engine,
                 emailAddress='email@address.test',
                 C='CN',
                 ST='test ST',
@@ -501,6 +502,7 @@ class ACMEOrderCertificateTest(unittest.TestCase):
             self.assertEqual(order_obj.status, 'valid')
 
             # download cert to indexed dir
+            engine = 'cryptography'    # engine 'openssl' is dropped
             path = CERT_DIR / f'order_{i}_{engine}'
             path.mkdir(exist_ok=True)
             cert_resp = order_obj.download_certificate(f'{path!s}')
@@ -511,13 +513,13 @@ class ACMEOrderCertificateTest(unittest.TestCase):
 
             openssl_verify(cert_path, chain_path)
 
-    def test_download_cert_openssl_csr(self):
-        """test for order finalization, then cert download", use openssl"""
-        self._finalize_and_download_cert('openssl')
+    # def test_download_cert_openssl_csr(self):
+    #     """test for order finalization, then cert download", use openssl"""
+    #     self._finalize_and_download_cert('openssl')
 
     def test_download_cert_cryptography_csr(self):
         """test for order finalization, then cert download, use cryptography"""
-        self._finalize_and_download_cert('cryptography')
+        self._finalize_and_download_cert()
     
     def tearDown(self) -> None:
         stop_pebble_docker(PEBBLE_CONTAINER, PEBBLE_CHALLTEST_CONTAINER)

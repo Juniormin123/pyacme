@@ -297,7 +297,7 @@ class ACMEOrder(_ACMERespObject):
     
     def finalize_order(self, 
                        privkey: Union[RSAPrivateKey, str], 
-                       engine = 'openssl',
+                    #    engine = 'openssl',
                        **subject_names) -> None:
         """
         finalize the `ACMEOrder` order by sending to its `"finalize"` url
@@ -309,7 +309,7 @@ class ACMEOrder(_ACMERespObject):
             privkey=privkey,
             domains=self.identifier_values,
             subject_names=subject_names,
-            engine=engine,
+            # engine=engine,
             jws_type=jws_type
         )
         self._update_from_resp(resp)
