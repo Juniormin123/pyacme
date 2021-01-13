@@ -36,6 +36,10 @@ class ACMEError(Exception):
             if 'Replay-Nonce' in resp.headers:
                 self.new_nonce = resp.headers['Replay-Nonce']
     
+    @property
+    def status_code(self) -> int:
+        return self._status_code
+    
     def __str__(self) -> str:
         cls = type(self).__name__
         _dict = {
