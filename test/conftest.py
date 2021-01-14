@@ -24,12 +24,14 @@ DEFAULT_KEYSIZE = 2048
 
 def pytest_configure(config):
     config.addinivalue_line(
-        "markers", "domain(identifier): valid domain names"
+        'markers', 'domain(identifier): valid domain names'
     )
 
 
 @pytest.fixture(scope='module', autouse=True)
-def start_pebble_docker_compose():
+def start_pebble_docker():
+    print('using docker-compose setup')
+    # this will run the pebble docker-compose, including challtest
     run_pebble_docker(PEBBLE_DOCKER_FILE)
     yield
     # cleanup and stop running container

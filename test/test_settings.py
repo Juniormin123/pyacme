@@ -14,6 +14,9 @@ TEST_IP = "127.0.0.1"
 TEST_PORT = 14000
 
 PEBBLE_TEST = f"https://{TEST_IP}:{TEST_PORT}/dir"
+ 
+# use pebble verify port
+PY_HTTPSERVER_PORT = '5002'
 
 # pebble challenge test server management interfaces
 # see https://github.com/letsencrypt/pebble/tree/master/cmd/pebble-challtestsrv
