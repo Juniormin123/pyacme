@@ -26,6 +26,15 @@ def pytest_configure(config):
     config.addinivalue_line(
         'markers', 'domain(identifier): valid domain names'
     )
+    config.addinivalue_line(
+        'markers', 'docker_type(type_value)'
+    )
+    config.addinivalue_line(
+        'markers', 'dnstest'
+    )
+    config.addinivalue_line(
+        'markers', 'httptest'
+    )
 
 
 @pytest.fixture(scope='module', autouse=True)

@@ -1,3 +1,4 @@
+from pyacme.settings import LETSENCRYPT_STAGING
 import pytest
 
 from conftest import Path
@@ -5,25 +6,17 @@ from conftest import settings
 from test_common import *
 
 
-def pytest_configure(config):
-    config.addinivalue_line(
-        'markers', 'docker_type(type_value)'
-    )
+# def pytest_configure(config):
+#     config.addinivalue_line(
+#         'markers', 'docker_type(type_value)'
+#     )
 
 
 @pytest.fixture(scope='class')
 def start_pebble_docker(request):
     # override start_pebble_docker form conftest.py
     marker = request.node.get_closest_marker('docker_type')
-    if marker is None:
-        print('using docker-compose setup')
-        # no marker given, 
-        # this will run the pebble docker-compose, including challtest
-        run_pebble_docker(PEBBLE_DOCKER_FILE)
-        yield
-        # cleanup and stop running container
-        stop_pebble_docker(PEBBLE_CONTAINER, PEBBLE_CHALLTEST_CONTAINER)
-    elif marker.args[0] == 'standalone':
+    if marker.args[0] == 'standalone':
         print('using standalone container setup')
         # override start_pebble_docker() from conftest.py;
         # only run the pebble container, without challtest
@@ -32,7 +25,17 @@ def start_pebble_docker(request):
         stop_pebble_standalone_container()
     elif marker.args[0] is None:
         # do not run any container
-        return
+        yield
+
+
+@pytest.fixture(scope='function')
+def aliyun_access_key() -> Dict[str, str]:
+    try:
+        with open('./.aliyun_dns_api.json') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        with open('test/.aliyun_dns_api.json') as f:
+            return json.load(f)
 
 
 def get_aliyun_access_key(key_file: str) -> Dict[str, str]:
@@ -142,9 +145,53 @@ http_mode_params = [
 ]
 
 
+@pytest.mark.httptest
 @pytest.mark.docker_type('standalone')
 @pytest.mark.usefixtures('start_pebble_docker')
 class TestHttpMode:
     @pytest.mark.parametrize('params', http_mode_params)
     def test_http_mode(self, params):
         _common(params)
+
+
+_STAGING_DOMAIN = ['test-staging.xn--jhqy4a5a064kimjf01df8e.host']
+_STAGING_WILDCARD_DOMAIN = ['*.xn--jhqy4a5a064kimjf01df8e.host']
+_STAGING_MULTI_DOMAIN = [
+    'test-staging-1.xn--jhqy4a5a064kimjf01df8e.host',
+    'test-staging-2.xn--jhqy4a5a064kimjf01df8e.host',
+]
+_DNS_MODE_COMMON_PARAM_PORTION = dict(
+    contact=TEST_CONTACTS,
+    country_code='UN',
+    CA_entry=LETSENCRYPT_STAGING,
+    mode='dns',
+)
+
+dns_mode_params = [
+    pytest.param(
+        dict(domain=_STAGING_DOMAIN, **_DNS_MODE_COMMON_PARAM_PORTION),
+        id='dns_mode_single_domain'
+    ),
+    pytest.param(
+        dict(domain=_STAGING_MULTI_DOMAIN, **_DNS_MODE_COMMON_PARAM_PORTION),
+        id='dns_mode_multi_domain'
+    ),
+    pytest.param(
+        dict(domain=_STAGING_WILDCARD_DOMAIN, **_DNS_MODE_COMMON_PARAM_PORTION),
+        id='dns_mode_wildcard_domain'
+    ),
+]
+
+@pytest.mark.dnstest
+@pytest.mark.docker_type(None)
+@pytest.mark.usefixtures('start_pebble_docker')
+class TestDNSMode:
+
+    @pytest.mark.parametrize('params', dns_mode_params)
+    def test_dns_mode(self, params, aliyun_access_key: Dict[str, str]):
+        key_dict = dict(
+            access_key=aliyun_access_key['access_key'],
+            secret=aliyun_access_key['secret']
+        )
+        params = dict(**params, **key_dict)
+        _common(params, ca='staging')
