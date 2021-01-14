@@ -1,10 +1,9 @@
 import base64
 import logging
-import multiprocessing
 import socketserver
-import subprocess
 import hashlib
 import json
+import sys
 import time
 from argparse import Namespace
 from http.server import SimpleHTTPRequestHandler
@@ -26,13 +25,13 @@ from pyacme.settings import *
 
 
 # only handle log record with level DEBUG
-debug_hd = logging.StreamHandler()
+debug_hd = logging.StreamHandler(stream=sys.stdout)
 debug_hd.setFormatter(logging.Formatter(LOG_DEBUG_FMT, style='{'))
 debug_hd.setLevel(logging.DEBUG)
 debug_hd.addFilter(lambda r: r.levelno == logging.DEBUG)
 
 # handle log level INFO and above
-info_hd = logging.StreamHandler()
+info_hd = logging.StreamHandler(stream=sys.stdout)
 info_hd.setFormatter(logging.Formatter(LOG_FMT, style='{'))
 info_hd.setLevel(LOG_LEVEL)
 
