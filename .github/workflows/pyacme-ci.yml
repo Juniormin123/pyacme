@@ -34,8 +34,7 @@ jobs:
         git clone https://github.com/letsencrypt/pebble.git
         cd pyacme
 
-    - name: unittest
+    - name: pytest
       run: |
         echo $(python -V)
-        cd test
-        python -m unittest pebble_test
+        pytest test/test_pebble.py
