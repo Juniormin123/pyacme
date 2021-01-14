@@ -124,5 +124,16 @@ def new_ready_order(request, new_order_obj: ACMEOrder) -> ACMEOrder:
     auth = new_order_obj.auth_objs[0]
     add_http_01(auth.chall_http.token, jwk)
     auth.chall_http.respond()
-    time.sleep(3)
+    time.sleep(4)
     return new_order_obj
+
+
+@pytest.fixture(scope='function')
+def new_tmp_wd(tmp_path: Path):
+    wd = tmp_path / CERT_DIR
+    wd.mkdir(parents=True, exist_ok=True)
+    yield wd, wd/'cert.pem', wd/'chain.pem', wd/'fullchain.pem'
+    print('clearing temp path')
+    for p in wd.iterdir():
+        p.unlink()
+        print(f'{p!s} cleared')

@@ -19,14 +19,16 @@ from test_settings import *
 
 
 # test constants
-BASE = Path(__file__).parents[1].absolute()
-RSA_PUB_1 = BASE / 'test' / 'test_pubkey.pem'
-RSA_PRIV_1 = BASE / 'test' / 'test_privkey.pem'
-RSA_PUB_2 = BASE / 'test' / 'test_pubkey_2.pem'
-RSA_PRIV_2 = BASE / 'test' / 'test_privkey_2.pem'
+# BASE = Path(__file__).parents[1].absolute()
+# RSA_PUB_1 = BASE / 'test' / 'test_pubkey.pem'
+# RSA_PRIV_1 = BASE / 'test' / 'test_privkey.pem'
+# RSA_PUB_2 = BASE / 'test' / 'test_pubkey_2.pem'
+# RSA_PRIV_2 = BASE / 'test' / 'test_privkey_2.pem'
 
-CERT_DIR = BASE / 'test' / '.cert_files'
-CERT_DIR.mkdir(parents=True, exist_ok=True)
+# CERT_DIR = BASE / 'test' / '.cert_files'
+# CERT_DIR.mkdir(parents=True, exist_ok=True)
+
+CERT_DIR = Path('.cert_files')
 
 TEST_CONTACTS = ['mailto:min641366609@live.com']
 TEST_CONTACTS_MOD = ['mailto:calvin.cheng@synergyfutures.com']
@@ -157,7 +159,8 @@ def download_root_cert(root_cert_path: Path,
 
 def openssl_verify(cert_path: Union[Path, str], 
                    chain_path: Union[Path, str], 
-                   root_cert_path = CERT_DIR,
+                #    root_cert_path = CERT_DIR,
+                   root_cert_path: Union[Path, str],
                    root_cert_name = "pebble-root-cert.pem"):
     """run `openssl verify` on downloaded cert"""
     p = subprocess.run(

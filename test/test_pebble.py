@@ -185,7 +185,7 @@ class TestACMEChallenge:
             # if poll auth immediately after repond, status should be "pending"
             auth.poll_auth_state()
             assert auth.status == 'pending'
-            time.sleep(3)
+            time.sleep(4)
             auth.poll_auth_state()
             assert auth.chall_http.status == 'valid'
             assert auth.status == 'valid'
@@ -223,6 +223,33 @@ class TestACMEOrderCertificate:
 
     domain = ['a.test.local']
 
-    def test_download_cert(self, tmp_path: Path, new_ready_order: ACMEOrder):
+    def test_download_cert(self, 
+                           new_tmp_wd: Tuple[Path, Path, Path, Path], 
+                           new_rsa_privkey_i: rsa.RSAPrivateKey,
+                           new_ready_order: ACMEOrder):
         new_ready_order.poll_order_state()
         assert new_ready_order.status == 'ready'
+        wd, cert_path, chain_path, fullchain_path = new_tmp_wd
+        download_root_cert(wd)
+        # test finalize order
+        new_ready_order.finalize_order(
+            privkey=new_rsa_privkey_i,
+            emailAddress='email@address.test',
+            C='CN',
+            ST='test ST',
+            L='test L',
+            O='test org',
+            OU='test OU'
+        )
+        time.sleep(1)
+        new_ready_order.poll_order_state()
+        # after finalized, state become "valid", cannot be finalized again
+        assert new_ready_order.status == 'valid'
+
+        # test download cert
+        download_resp = new_ready_order.download_certificate(str(wd))
+        assert download_resp.status_code == 200
+
+        # external openssl verify
+        completed_p = openssl_verify(cert_path, chain_path, wd)
+        assert completed_p.returncode == 0
