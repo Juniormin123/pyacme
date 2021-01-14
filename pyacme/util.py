@@ -1,5 +1,6 @@
 import base64
 import logging
+import multiprocessing
 import socketserver
 import subprocess
 import hashlib
@@ -232,13 +233,23 @@ def run_http_server(path: Union[Path, str], port = 80) -> None:
         def __init__(self, *args, **kwargs) :
             super().__init__(*args, directory=str(path), **kwargs)
 
-    with socketserver.TCPServer(('', port), Handler) as httpd:
-        try:
-            # print(f'serving at port {port}')
-            info(f'serving at port {port}')
-            httpd.serve_forever()
-        except KeyboardInterrupt:
-            httpd.server_close()
+    with socketserver.TCPServer(
+        ('', port), Handler, bind_and_activate=False) as httpd:
+        # TODO proper exit for http server
+        # try:
+        #     # print(f'serving at port {port}')
+        #     info(f'serving at port {port}')
+        #     httpd.serve_forever()
+        # except Exception:
+        #     httpd.shutdown()
+        #     httpd.server_close()
+
+        # prevent "OSError: [Errno 98] Address already in use" when testing
+        httpd.allow_reuse_address = True
+        httpd.server_bind()
+        httpd.server_activate()
+        info(f'serving at port {port}')
+        httpd.serve_forever()
 
 
 def jwk_factory(acct_priv_key: str) -> _JWKBase:
