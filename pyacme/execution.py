@@ -52,7 +52,7 @@ def http_chall(order_obj: ACMEOrder,
 def main_finalize(order: ACMEOrder, 
                   subject_names: Dict[str, str], 
                   cert_path: str, 
-                  csr_priv_key_type: int,
+                  csr_priv_key_type: str,
                   csr_priv_key_size: int):
     order.poll_order_state()
     if order.status == 'ready':
