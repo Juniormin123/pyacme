@@ -2,4 +2,5 @@
 !.gitignore
 !.vscode
 !.github
+pyacme.egg-info
 __pycache__

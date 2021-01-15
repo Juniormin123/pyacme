@@ -6,3 +6,16 @@ build-backend = "setuptools.build_meta"
 filterwarnings = [
     "ignore:Unverified HTTPS request"
 ]
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist = py36, py37, py38, py39
+
+[testenv]
+deps = 
+    pytest
+    -rrequirements.txt
+commands = 
+    pytest test/test_pebble.py
+"""
