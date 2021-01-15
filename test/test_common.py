@@ -43,7 +43,8 @@ global_docker_is_running = False
 def _run_cmd(*cmd_args: str) -> None:
     completed = subprocess.run(
         args=cmd_args,
-        capture_output=True,
+        # capture_output=True,
+        stdout=subprocess.PIPE,
         encoding='utf-8',
         # should raise exception if docker failed to run
         check=True
@@ -193,7 +194,8 @@ def add_host_entry(domains: List[str], addr: str) -> None:
     # check the content of hosts
     checked_p = subprocess.run(
         ['sudo', 'cat', '/etc/hosts'], 
-        capture_output=True
+        # capture_output=True
+        stdout=subprocess.PIPE,
     )
     entries = checked_p.stdout.decode('utf-8').split('\n')
     
@@ -219,7 +221,8 @@ def run_pebble_standalone_container(name: str = 'pebble'):
             'letsencrypt/pebble'
         ],
         check=False,
-        capture_output=True
+        # capture_output=True
+        stdout=subprocess.PIPE
     )
     if p.returncode != 0:
         raise ValueError(p.stderr.decode('utf-8'))
@@ -228,7 +231,7 @@ def run_pebble_standalone_container(name: str = 'pebble'):
 
 def stop_pebble_standalone_container(name: str = 'pebble') -> None:
     subprocess.run(['docker', 'stop', name], check=True)
-    subprocess.run(['docker', 'container', 'prune', '-f'], check=True)
+    # subprocess.run(['docker', 'container', 'prune', '-f'], check=True)
 
 
 def create_py_http_server(bind: str, port: str, path: str) -> subprocess.Popen:
