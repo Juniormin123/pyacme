@@ -124,8 +124,7 @@ def main_add_args() -> argparse.Namespace:
         '-c',
         '--contact',
         action='append',
-        help="Optional if acctount exists in workding directory; "
-             "domain holder's email address for CA to send "
+        help="input domain holder's email address for CA to send "
              "notification, use multiple `-c` to provide more than one "
              "contact email."
     )
