@@ -12,7 +12,8 @@ from pyacme.ACMEobj import ACMEAccount, ACMEOrder
 from pyacme.actions import ACMEAccountActions
 from pyacme.request import ACMERequestActions
 from pyacme.base import _JWKBase, _JWSBase
-from pyacme.jwk import JWKRSA, JWSRS256
+from pyacme.jwk import JWKRSA 
+from pyacme.jws import JWSRS256
 from pyacme.exceptions import ACMEError
 from pyacme import settings
 
@@ -38,7 +39,7 @@ def pytest_configure(config):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def start_pebble_docker():
+def setup_pebble_docker():
     print('using docker-compose setup')
     # this will run the pebble docker-compose, including challtest
     run_pebble_docker(PEBBLE_DOCKER_FILE)

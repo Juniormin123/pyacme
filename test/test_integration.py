@@ -13,16 +13,18 @@ from test_common import *
 
 
 @pytest.fixture(scope='class')
-def start_pebble_docker(request):
+def setup_pebble_docker(request):
     # override start_pebble_docker form conftest.py
     marker = request.node.get_closest_marker('docker_type')
     if marker.args[0] == 'standalone':
         print('using standalone container setup')
         # override start_pebble_docker() from conftest.py;
         # only run the pebble container, without challtest
-        run_pebble_standalone_container()
+        container_name = time.strftime(settings.BAK_TIME_FMT, time.localtime())
+        run_pebble_standalone_container('pebble_'+container_name)
+        print(f'running container pebble_{container_name}')
         yield
-        stop_pebble_standalone_container()
+        stop_pebble_standalone_container(container_name)
     elif marker.args[0] is None:
         # do not run any container
         yield
@@ -147,11 +149,13 @@ http_mode_params = [
 
 @pytest.mark.httptest
 @pytest.mark.docker_type('standalone')
-@pytest.mark.usefixtures('start_pebble_docker')
+@pytest.mark.usefixtures('setup_pebble_docker')
 class TestHttpMode:
     @pytest.mark.parametrize('params', http_mode_params)
     def test_http_mode(self, params):
         _common(params)
+        # wait for a while if this is to be tested with test_pebble.py
+        # time.sleep(2)
 
 
 _STAGING_DOMAIN = ['test-staging.xn--jhqy4a5a064kimjf01df8e.host']
@@ -184,7 +188,7 @@ dns_mode_params = [
 
 @pytest.mark.dnstest
 @pytest.mark.docker_type(None)
-@pytest.mark.usefixtures('start_pebble_docker')
+@pytest.mark.usefixtures('setup_pebble_docker')
 class TestDNSMode:
 
     @pytest.mark.parametrize('params', dns_mode_params)
