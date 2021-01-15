@@ -1,3 +1,4 @@
+![build](https://github.com/Juniormin123/pyacme/workflows/pyacme-ci/badge.svg)
 # pyacme
 A simple ACME client written in python
 
