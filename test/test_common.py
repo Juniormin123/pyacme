@@ -215,14 +215,15 @@ def add_host_entry(domains: List[str], addr: str) -> None:
         )
         return
     check_target = [[addr, d] for d in domains]
-    with open('/etc/hosts', 'a+') as f:
+    with open('/etc/hosts', 'r') as f:
         lines = [l.strip().split('\t') for l in f.readlines()]
+    with open('/etc/hosts', 'a+') as f:
         for addr_d in check_target:
             if addr_d in lines:
                 print(f'{addr_d} exists in /etc/hosts')
                 continue
             else:
-                entry = ' '.join(addr_d)+'\n'
+                entry = '\t'.join(addr_d)+'\n'
                 f.write(entry)
                 print(f'{entry} written to /etc/hosts')
 
