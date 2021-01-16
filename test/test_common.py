@@ -1,3 +1,4 @@
+import os
 from typing import List, Tuple, Union, Dict
 from pathlib import Path
 import time
@@ -179,34 +180,51 @@ def add_host_entry(domains: List[str], addr: str) -> None:
     """
     add entry like `127.0.0.1 test.local` to /etc/hosts, if entry exists, skip
     """
-    def _sudo_sed(domain: str) -> subprocess.CompletedProcess:
-        p = subprocess.run(
-            [
-                'sudo', 
-                'sed', '-i',
-                '$a\\' + f'{addr} {domain}',
-                '/etc/hosts'
-            ],
-            check=True
+    # def _sudo_sed(domain: str) -> subprocess.CompletedProcess:
+    #     p = subprocess.run(
+    #         [
+    #             'sudo', 
+    #             'sed', '-i',
+    #             '$a\\' + f'{addr} {domain}',
+    #             '/etc/hosts'
+    #         ],
+    #         check=True
+    #     )
+    #     return p
+    
+    # # check the content of hosts
+    # checked_p = subprocess.run(
+    #     ['sudo', 'cat', '/etc/hosts'], 
+    #     # capture_output=True
+    #     stdout=subprocess.PIPE,
+    # )
+    # entries = checked_p.stdout.decode('utf-8').split('\n')
+    
+    # for domain in domains:
+    #     for entry in entries:
+    #         if domain in entry:
+    #             print(f'{domain} exists in /etc/hosts')
+    #             break
+    #     else:
+    #         _sudo_sed(domain)
+    #         print(f'{domain} added to /etc/hosts')
+    if os.getuid() != 0:
+        print(
+            f'no root present, did not write to host; ' 
+            f'current uid={os.getuid()}'
         )
-        return p
-    
-    # check the content of hosts
-    checked_p = subprocess.run(
-        ['sudo', 'cat', '/etc/hosts'], 
-        # capture_output=True
-        stdout=subprocess.PIPE,
-    )
-    entries = checked_p.stdout.decode('utf-8').split('\n')
-    
-    for domain in domains:
-        for entry in entries:
-            if domain in entry:
-                print(f'{domain} exists in /etc/hosts')
-                break
-        else:
-            _sudo_sed(domain)
-            print(f'{domain} added to /etc/hosts')
+        return
+    check_target = [[addr, d] for d in domains]
+    with open('/etc/hosts', 'a+') as f:
+        lines = [l.strip().split('\t') for l in f.readlines()]
+        for addr_d in check_target:
+            if addr_d in lines:
+                print(f'{addr_d} exists in /etc/hosts')
+                continue
+            else:
+                entry = ' '.join(addr_d)+'\n'
+                f.write(entry)
+                print(f'{entry} written to /etc/hosts')
 
 
 def run_pebble_standalone_container(name: str = 'pebble'):
@@ -235,14 +253,20 @@ def stop_pebble_standalone_container(name: str = 'pebble') -> None:
 
 
 def create_py_http_server(bind: str, port: str, path: str) -> subprocess.Popen:
-    p =  subprocess.Popen(
-        [
-            'python', '-m', 'http.server', 
-            '--bind', bind,
-            '--directory', path,
-            port
-        ]
-    )
+    # use a dynamic path, in case running test in root
+    py_path = sys.executable
+    param = [
+        # 'python', '-m', 'http.server', 
+        '-m', 'http.server', 
+        '--bind', bind,
+        '--directory', path,
+        port
+    ]
+    try:
+        p =  subprocess.Popen([py_path, *param])
+    except FileNotFoundError:
+        py_path = 'python3'
+        p = subprocess.Popen([py_path, *param])
     print(f'server created at pid={p.pid}')
     return p
 
