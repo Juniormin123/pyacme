@@ -21,8 +21,9 @@ def setup_pebble_docker(request):
         # override start_pebble_docker() from conftest.py;
         # only run the pebble container, without challtest
         container_name = time.strftime(settings.BAK_TIME_FMT, time.localtime())
-        run_pebble_standalone_container('pebble_'+container_name)
-        print(f'running container pebble_{container_name}')
+        container_name = 'pebble_' + container_name
+        run_pebble_standalone_container(container_name)
+        print(f'running container {container_name}')
         yield
         stop_pebble_standalone_container(container_name)
     elif marker.args[0] is None:
@@ -46,7 +47,7 @@ def get_aliyun_access_key(key_file: str) -> Dict[str, str]:
 
 
 def subprocess_run_pyacme(**main_param) -> subprocess.CompletedProcess:
-    run_arg = ['python', str(Path(__file__).parents[1] / 'run_pyacme.py')]
+    run_arg = [sys.executable, str(Path(__file__).parents[1] / 'run_pyacme.py')]
     param_dict = {
         'country_code': '-C',
         'csr_subjects': '--csr_subjects',
@@ -149,7 +150,8 @@ http_mode_params = [
 
 @pytest.mark.httptest
 @pytest.mark.docker_type('standalone')
-@pytest.mark.usefixtures('setup_pebble_docker')
+@pytest.mark.host_entry(_DOMAIN+_MULTI_DOMAIN, '127.0.0.1')
+@pytest.mark.usefixtures('setup_pebble_docker', 'root_host_entry')
 class TestHttpMode:
     @pytest.mark.parametrize('params', http_mode_params)
     def test_http_mode(self, params):

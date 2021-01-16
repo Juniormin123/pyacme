@@ -36,6 +36,9 @@ def pytest_configure(config):
     config.addinivalue_line(
         'markers', 'httptest'
     )
+    config.addinivalue_line(
+        'markers', 'host_entry'
+    )
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -46,6 +49,12 @@ def setup_pebble_docker():
     yield
     # cleanup and stop running container
     stop_pebble_docker(PEBBLE_CONTAINER, PEBBLE_CHALLTEST_CONTAINER)
+
+
+@pytest.fixture(scope='class')
+def root_host_entry(request):
+    marker = request.node.get_closest_marker('host_entry')
+    add_host_entry(*marker.args)
 
 
 @pytest.fixture(scope='module')
