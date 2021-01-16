@@ -157,7 +157,7 @@ class TestHttpMode:
     def test_http_mode(self, params):
         _common(params)
         # wait for a while if this is to be tested with test_pebble.py
-        # time.sleep(2)
+        # time.sleep(5)
 
 
 _STAGING_DOMAIN = ['test-staging.xn--jhqy4a5a064kimjf01df8e.host']
@@ -201,3 +201,4 @@ class TestDNSMode:
         )
         params = dict(**params, **key_dict)
         _common(params, ca='staging')
+        time.sleep(5)
