@@ -99,7 +99,7 @@ jobs:
 
     - name: Test dns mode aliyun
       run: |
-        pyacme -d $TEST_DOMAIN \
+        pyacme -d $DNS_TEST_DOMAIN \
           -c mailto:min641366609@live.com \
           -C UN \
           -k $ALIYUN_AK \
