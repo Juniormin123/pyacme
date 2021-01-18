@@ -54,6 +54,7 @@ jobs:
 
     env:
       CHALL_RESP_PORT: 5002
+      TEST_CA_PORT: 14000
       LOCAL_HOST: '127.0.0.1'
       TEST_DOMAIN: test-integration.local
 
@@ -88,5 +89,5 @@ jobs:
           -C UN \
           -m http \
           --chall_resp_server_port $CHALL_RESP_PORT \
-          --CA_entry https://${LOCAL_HOST}:${CHALL_RESP_PORT}/dir \
+          --CA_entry https://${LOCAL_HOST}:${TEST_CA_PORT}/dir \
           --no_ssl_verify
