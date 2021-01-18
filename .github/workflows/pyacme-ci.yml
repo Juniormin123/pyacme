@@ -79,11 +79,11 @@ jobs:
       run: docker run -d -e "PEBBLE_VA_NOSLEEP=1" --network=host letsencrypt/pebble
     
     - name: Add hosts entry
-      run: sed -i '$a '"$LOCAL_HOST $TEST_DOMAIN" /etc/hosts
+      run: sudo echo "$LOCAL_HOST $TEST_DOMAIN" | sudo tee /etc/hosts
     
     - name: Test http mode
       run: |
-        pyacme -d $PYACME_TEST_DOMAIN \
+        pyacme -d $TEST_DOMAIN \
           -c mailto:test@mail.local \
           -C UN \
           -m http \
