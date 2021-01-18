@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Sequence
 from pathlib import Path
 from multiprocessing import Process
 import time
@@ -20,6 +20,8 @@ info = logger.info
 
 
 def wait_for_server_stop(p: Process) -> None:
+    # after p is terminate()
+    p.join()
     while True:
         if not p.is_alive():
             break
@@ -108,7 +110,7 @@ def main_download_cert(order: ACMEOrder, cert_path):
         raise ValueError(f'order state "{order.status}" != "valid"')
 
 
-def main_add_args() -> argparse.Namespace:
+def main_add_args(args: Sequence) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description='A simple acme client written in python'
     )
@@ -251,8 +253,11 @@ def main_add_args() -> argparse.Namespace:
         action='version',
         version='%(prog)s ' + f'{__version__}'
     )
-    args = parser.parse_args()
-    return args
+    if args:
+        parsed_args = parser.parse_args(args)
+    else:
+        parsed_args = parser.parse_args()
+    return parsed_args
 
 
 def main(*,
@@ -317,6 +322,10 @@ def main(*,
             # daemon=True
         )
         server_p.start()
+
+        # TODO this waiting is needed for pytest-cov, reason unknown
+        time.sleep(1)
+
         try:
             auths = http_chall(order, chall_path=chall_path)
             for a in auths: debug(str(a))
@@ -377,6 +386,14 @@ def main(*,
 
 def main_entry_point():
     args = main_add_args()
+    debug(args)
+    param_dict = main_param_parser(args)
+    debug(param_dict)
+    main(**param_dict)
+
+
+def test_main_entry_point(p: Sequence):
+    args = main_add_args(p)
     debug(args)
     param_dict = main_param_parser(args)
     debug(param_dict)
