@@ -1,5 +1,5 @@
 import os
-from typing import List, Tuple, Union, Dict
+from typing import List, Tuple, Union, Dict, Sequence
 from pathlib import Path
 import time
 import json
@@ -14,6 +14,7 @@ import sys
 sys.path.append(str(Path(__file__).parents[1].absolute()))
 
 from pyacme.base import _JWKBase
+from pyacme.execution import test_main_entry_point
 from pyacme.util import get_keyAuthorization, get_dns_chall_txt_record
 # from pyacme.settings import *
 from test_settings import *

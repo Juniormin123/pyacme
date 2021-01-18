@@ -46,8 +46,56 @@ def get_aliyun_access_key(key_file: str) -> Dict[str, str]:
         return json.load(f)
 
 
-def subprocess_run_pyacme(**main_param) -> subprocess.CompletedProcess:
-    run_arg = [sys.executable, str(Path(__file__).parents[1] / 'run_pyacme.py')]
+# def subprocess_run_pyacme(**main_param) -> subprocess.CompletedProcess:
+#     run_arg = [sys.executable, str(Path(__file__).parents[1] / 'run_pyacme.py')]
+#     param_dict = {
+#         'country_code': '-C',
+#         'csr_subjects': '--csr_subjects',
+#         'account_private_key': '--account_private_key',
+#         'not_before': '--not_before',
+#         'not_after': '--not_after',
+#         'working_directory': '-w',
+#         'mode': '-m',
+#         'dnsprovider': '--dnsprovider',
+#         'access_key': '-k',
+#         'secret': '-s',
+#         'dns_specifics': '--dns_specifics',
+#         'CA_entry': '--CA_entry',
+#         'poll_interval': '--poll_interval',
+#         'poll_retry_count': '--poll_retry_count',
+#         'csr_priv_key_type': '--csr_priv_key_type',
+#         'csr_priv_key_size': '--csr_priv_key_size',
+#         'chall_resp_server_port': '--chall_resp_server_port',
+#     }
+
+#     for d in main_param['domain']:
+#         run_arg += ['-d', d]
+#     del main_param['domain']
+
+#     for c in main_param['contact']:
+#         run_arg += ['-c', c]
+#     del main_param['contact']
+
+#     if ('no_ssl_verify' in main_param) and main_param['no_ssl_verify']:
+#         run_arg += ['--no_ssl_verify']
+#         del main_param['no_ssl_verify']
+
+#     if ('debug' in main_param) and main_param['debug']:
+#         run_arg += ['--debug']
+#         del main_param['debug']
+
+#     for k, v in main_param.items():
+#         run_arg += [param_dict[k], v]
+#     p = subprocess.run(
+#         run_arg,
+#         # capture_output=True,
+#         # check=True
+#     )
+#     return p
+
+
+def run_test_main(**main_param) -> None:
+    run_arg = []
     param_dict = {
         'country_code': '-C',
         'csr_subjects': '--csr_subjects',
@@ -86,16 +134,13 @@ def subprocess_run_pyacme(**main_param) -> subprocess.CompletedProcess:
 
     for k, v in main_param.items():
         run_arg += [param_dict[k], v]
-    p = subprocess.run(
-        run_arg,
-        # capture_output=True,
-        # check=True
-    )
-    return p
+
+    test_main_entry_point(run_arg)
 
 
 def _common(params: dict, ca = 'pebble'):
-    assert subprocess_run_pyacme(**params).returncode == 0
+    # assert subprocess_run_pyacme(**params).returncode == 0
+    run_test_main(**params)
     if 'working_directory' in params:
         wd = Path(params['working_directory']).expanduser().absolute()
     else:
