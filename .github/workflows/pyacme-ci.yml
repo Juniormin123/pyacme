@@ -1,4 +1,4 @@
-name: pyacme-ci
+name: build
 
 on:
   push:
@@ -26,7 +26,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pytest
+        pip install pytest pytest-cov
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     
     - name: clone pebble
@@ -38,8 +38,55 @@ jobs:
     - name: pytest pebble
       run: |
         echo $(python -V)
-        pytest test/test_pebble.py
+        pytest --cov=pyacme test/test_pebble.py
     
     - name: pytest integration http mode
       run: |
-        pytest test/test_integration.py -m httptest
+        pytest --cov=pyacme --cov-append test/test_integration.py -m httptest
+
+
+  integration:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version:
+          - 3.8
+
+    env:
+      CHALL_RESP_PORT: 5002
+      LOCAL_HOST: '127.0.0.1'
+      TEST_DOMAIN: test-integration.local
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build
+    
+    - name: Build package
+      run: python -m build
+    
+    - name: Install built package
+      run: pip install dist/*.gz
+    
+    - name: Start pebble docker
+      run: docker run -e "PEBBLE_VA_NOSLEEP=1" --network=host letsencrypt/pebble
+    
+    - name: Add hosts entry
+      run: sed -i '$a '"$LOCAL_HOST $TEST_DOMAIN" /etc/hosts
+    
+    - name: Test http mode
+      run: |
+        pyacme -d $PYACME_TEST_DOMAIN \
+          -c mailto:test@mail.local \
+          -C UN \
+          -m http \
+          --chall_resp_server_port $CHALL_RESP_PORT \
+          --CA_entry https://${LOCALHOST}:${CHALL_RESP_PORT}/dir \
+          --no_ssl_verify
