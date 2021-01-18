@@ -205,11 +205,11 @@ class TestHttpMode:
         # time.sleep(5)
 
 
-_STAGING_DOMAIN = ['test-staging.xn--jhqy4a5a064kimjf01df8e.host']
-_STAGING_WILDCARD_DOMAIN = ['*.xn--jhqy4a5a064kimjf01df8e.host']
+_STAGING_DOMAIN = ['test-staging.xn--ihqz7no5gol3b.icu']
+_STAGING_WILDCARD_DOMAIN = ['*.xn--ihqz7no5gol3b.icu']
 _STAGING_MULTI_DOMAIN = [
-    'test-staging-1.xn--jhqy4a5a064kimjf01df8e.host',
-    'test-staging-2.xn--jhqy4a5a064kimjf01df8e.host',
+    'test-staging-1.xn--ihqz7no5gol3b.icu',
+    'test-staging-2.xn--ihqz7no5gol3b.icu',
 ]
 _DNS_MODE_COMMON_PARAM_PORTION = dict(
     contact=TEST_CONTACTS,
