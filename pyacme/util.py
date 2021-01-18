@@ -297,12 +297,14 @@ def domains_check(domains: List[str]) -> List[str]:
     if top-level like `example.com` is not given in `domains`, it will be 
     added here
     """
+    if len(domains) == 1:
+        return domains
     primary_set: List[str] = []
     for d in domains:
         primary = '.'.join(d.split('.')[-2:])
         primary_set.append(primary)
     if len(set(primary_set)) == 1:
-        primary = list(set(primary_set))[0]
+        primary = primary_set.pop()
         # if top-level given by user but not in the first
         if primary in domains:
             # move primary to the first element in domains list
@@ -312,7 +314,7 @@ def domains_check(domains: List[str]) -> List[str]:
             #     if d == primary:
             #         continue
             #     domains_mod.append(d)
-            domains_mod = sorted(domains, key=lambda s: len(s))
+            domains_mod = sorted(domains, key=len)
             return domains_mod
         else:
             # if top-level is not given by user, add it to domains
