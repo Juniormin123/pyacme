@@ -28,10 +28,10 @@ pyacme -d a.example.com -d b.example.com -c "mailto:test@mail.com" -C US -k KEY 
 
 ## Options reference
 ### required arguments:
-`-d, --domain`
+`-d, --domain str`
 FDQN; international domain should use punycode; use multiple `-d` to provide more than one domains.
-`-c, --contact`
-input domain holder's email address for CA to send notification, use multiple `-c` to provide more than one contact email. `mailto:` prefix should be included.
+`-c, --contact str`
+input domain holder's email address for CA to send notification, use multiple `-c` to provide more than one contact email. `mailto:` prefix must be included.
 `-C, --country_code`
 two-digit country code, e.g. CN
 
@@ -39,19 +39,19 @@ two-digit country code, e.g. CN
 `-h, --help`    
 show this help message and exit
 
-`--csr_subjects`    
+`--csr_subjects str`    
 key=value string to csr values besisdes C and CN, e.g. `"ST=State,L=Locality,O=test Org,emailAddres=test@email.org"`
 
-`--account_private_key`    
+`--account_private_key path`    
 absolute path to a pem private key file. RSA key size must be larger than 2048 and multiple of 4
 
-`--not_before`    
+`--not_before str`    
 a date time string, acme order will not be availabe before this time; *has no effect for now*
 
-`--not_after NOT_AFTER`    
+`--not_after str`    
 a date time string, acme order will not be availabe after this time; *has no effect for now*
 
-`-w, --working_directory`    
+`-w, --working_directory path`    
 dafault is `~/.pyacme` ; cert can be found at `working_directroy/cert`
 
 `-m {http,dns}, --mode {http,dns}`    
@@ -60,31 +60,31 @@ decide how to complete acme challenges, default "dns"; root privilege needed for
 `--dnsprovider {aliyun}`    
 select one dnsprovider, current support following providers `['aliyun']`, default provider aliyun
 
-`-k, --access_key`    
+`-k, --access_key str`    
 access key or token to dns provider, if mode is "dns", this option is required; if mode is "http", this option is omitted
 
-`-s, --secret`    
+`-s, --secret str`    
 secret or token to dns provider, if mode is "dns", and dnsprovider is "aliyun" this option is required; if mode is "http", this option is omitted
 
-`--dns_specifics`    
+`--dns_specifics str`    
 for certain dnsproviders, pass string like `"key1=value1,key2=value2 ..."`
 
-`--CA_entry CA_ENTRY`   
+`--CA_entry url`   
 url to a CA /directory, default is `https://acme-v02.api.letsencrypt.org/directory`
 
-`--poll_interval`    
+`--poll_interval float`    
 seconds between each authorization poll, default 5.0
 
-`--poll_retry_count`    
+`--poll_retry_count int`    
 total count of authorization poll retry, default 24
 
 `--csr_priv_key_type {rsa}`    
 select key type to sign CSR, default "rsa"
 
-`--csr_priv_key_size`    
+`--csr_priv_key_size int`    
 Optional, key size of key that will sign CSR, default 2048
 
-`--chall_resp_server_port`    
+`--chall_resp_server_port int`    
 the port used when responding to http-01 challenge; default on port 80, root previlige needed
 
 `--no_ssl_verify`       
