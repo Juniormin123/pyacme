@@ -88,5 +88,5 @@ jobs:
           -C UN \
           -m http \
           --chall_resp_server_port $CHALL_RESP_PORT \
-          --CA_entry https://${LOCALHOST}:${CHALL_RESP_PORT}/dir \
+          --CA_entry https://${LOCAL_HOST}:${CHALL_RESP_PORT}/dir \
           --no_ssl_verify
