@@ -392,7 +392,7 @@ def main_entry_point():
     main(**param_dict)
 
 
-def test_main_entry_point(p: Sequence):
+def main_entry_point_test(p: Sequence):
     args = main_add_args(p)
     debug(args)
     param_dict = main_param_parser(args)

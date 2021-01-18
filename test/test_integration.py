@@ -135,7 +135,7 @@ def run_test_main(**main_param) -> None:
     for k, v in main_param.items():
         run_arg += [param_dict[k], v]
 
-    test_main_entry_point(run_arg)
+    main_entry_point_test(run_arg)
 
 
 def _common(params: dict, ca = 'pebble'):

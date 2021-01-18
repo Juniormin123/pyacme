@@ -14,7 +14,7 @@ import sys
 sys.path.append(str(Path(__file__).parents[1].absolute()))
 
 from pyacme.base import _JWKBase
-from pyacme.execution import test_main_entry_point
+from pyacme.execution import main_entry_point_test
 from pyacme.util import get_keyAuthorization, get_dns_chall_txt_record
 # from pyacme.settings import *
 from test_settings import *
