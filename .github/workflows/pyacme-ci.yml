@@ -40,9 +40,9 @@ jobs:
         echo $(python -V)
         pytest --cov=pyacme test/test_pebble.py
     
-    - name: pytest integration http mode
-      run: |
-        pytest --cov=pyacme --cov-append test/test_integration.py -m httptest
+    # - name: pytest integration http mode
+    #   run: |
+    #     pytest --cov=pyacme --cov-append test/test_integration.py -m httptest
 
 
   integration:
@@ -76,7 +76,7 @@ jobs:
       run: pip install dist/*.gz
     
     - name: Start pebble docker
-      run: docker run -e "PEBBLE_VA_NOSLEEP=1" --network=host letsencrypt/pebble
+      run: docker run -d -e "PEBBLE_VA_NOSLEEP=1" --network=host letsencrypt/pebble
     
     - name: Add hosts entry
       run: sed -i '$a '"$LOCAL_HOST $TEST_DOMAIN" /etc/hosts
