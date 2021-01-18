@@ -110,7 +110,7 @@ def main_download_cert(order: ACMEOrder, cert_path):
         raise ValueError(f'order state "{order.status}" != "valid"')
 
 
-def main_add_args(args: Sequence) -> argparse.Namespace:
+def main_add_args(args: Sequence = []) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description='A simple acme client written in python'
     )
