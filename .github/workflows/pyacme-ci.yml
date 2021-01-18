@@ -58,6 +58,11 @@ jobs:
       LOCAL_HOST: '127.0.0.1'
       TEST_DOMAIN: test-integration.local
 
+      DNS_TEST_DOMAIN: '*.xn--ihqz7no5gol3b.icu'
+      STAGING_CA: "https://acme-staging-v02.api.letsencrypt.org/directory"
+      ALIYUN_AK: ${{ secrets.ALIYUN_ACCESS_KEY }}
+      ALIYUN_S: ${{ secrets.ALIYUN_SECRET }}
+
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
@@ -76,18 +81,28 @@ jobs:
     - name: Install built package
       run: pip install dist/*.gz
     
-    - name: Start pebble docker
-      run: docker run -d -e "PEBBLE_VA_NOSLEEP=1" --network=host letsencrypt/pebble
+    # - name: Start pebble docker
+    #   run: docker run -d -e "PEBBLE_VA_NOSLEEP=1" --network=host letsencrypt/pebble
     
-    - name: Add hosts entry
-      run: sudo echo "$LOCAL_HOST $TEST_DOMAIN" | sudo tee /etc/hosts
+    # - name: Add hosts entry
+    #   run: sudo echo "$LOCAL_HOST $TEST_DOMAIN" | sudo tee /etc/hosts
     
-    - name: Test http mode
+    # - name: Test http mode
+    #   run: |
+    #     pyacme -d $TEST_DOMAIN \
+    #       -c mailto:test@mail.local \
+    #       -C UN \
+    #       -m http \
+    #       --chall_resp_server_port $CHALL_RESP_PORT \
+    #       --CA_entry https://${LOCAL_HOST}:${TEST_CA_PORT}/dir \
+    #       --no_ssl_verify
+
+    - name: Test dns mode aliyun
       run: |
         pyacme -d $TEST_DOMAIN \
-          -c mailto:test@mail.local \
+          -c mailto:min641366609@live.com \
           -C UN \
-          -m http \
-          --chall_resp_server_port $CHALL_RESP_PORT \
-          --CA_entry https://${LOCAL_HOST}:${TEST_CA_PORT}/dir \
-          --no_ssl_verify
+          -k $ALIYUN_AK \
+          -s $ALIYUN_S \
+          --CA_entry $STAGING_CA
+
