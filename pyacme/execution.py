@@ -199,6 +199,7 @@ def main_add_args(args: Sequence = []) -> argparse.Namespace:
     )
     parser.add_argument(
         '--CA_entry',
+        default=LETSENCRYPT_PRODUCTION,
         help=f'url to a CA /directory, default is {LETSENCRYPT_PRODUCTION}'
     )
     parser.add_argument(
