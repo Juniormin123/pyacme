@@ -18,6 +18,5 @@
     ],
     "python.testing.pytestArgs": [
         "test"
-    ],
-    "python.pythonPath": "/home/calvin/miniconda3/envs/acme-test/bin/python"
+    ]
 }
