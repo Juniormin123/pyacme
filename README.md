@@ -2,20 +2,33 @@
 # pyacme
 A simple ACME client written in python
 
+## Install
+```bash
+pip install pyacme
+```
+or clone this repo and use `pip install .`
+
 ## Usage
-### acquire certificate using http mode
+### Acquire certificate using http mode
 Apply for single domain certificate using simpleast http config, root privilege needed.
 ```bash
 sudo pyacme -d example.com -c "mailto:test@mail.com" -C US --mode http
 ```
 
-### acquire certificate using dns mode
+### Acquire certificate using dns mode
 Apply for single domain certificate using simpleast dns config, which uses aliyun as dns provider, no root required.
 ```bash
-pyacme -d example.com -c "mailto:test@mail.com" -C US --k KEY --s SECRET
+pyacme -d example.com -c "mailto:test@mail.com" -C US -k KEY -s SECRET
 ```
 
-### acquire SAN certificates
+### Invoke with `sudo`
+If package pyacme is installed inside environment like `conda`, it may need to specify the python path:
+```bash
+# e.g. inside a conda env
+sudo $(which python) -m pyacme -d example.com -c "mailto:test@mail.com" -C US --mode http
+```
+
+### Acquire SAN certificates
 Use multiple `-d` to supply domains. When multiple domains supplied, the root domain should be the same.
 ```bash
 pyacme -d example.com -d a.example.com -c "mailto:test@mail.com" -C US -k KEY -s SECRET
