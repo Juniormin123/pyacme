@@ -89,7 +89,6 @@ def generate_rsa_privkey(privkey_dir: str,
         key_size=keysize,
         backend=default_backend()
     )
-    # TODO proper way to store generated csr private key
     csr_priv_key_b = csr_priv_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.TraditionalOpenSSL,
@@ -113,8 +112,6 @@ def create_csr(privkey: rsa.RSAPrivateKey,
     generate csr using `cryptography.x509`;
     """
     csr = x509.CertificateSigningRequestBuilder()
-    # cn = ','.join([f'DNS:{d}' for d in domains])
-    # cn = ','.join(domains)
     cn = domains[0]
     csr = csr.subject_name(
         x509.Name(
@@ -134,42 +131,7 @@ def create_csr(privkey: rsa.RSAPrivateKey,
     csr_signed = csr.sign(
         privkey, algorithm=hashes.SHA256(), backend=default_backend()
     )
-    # return csr_signed
     return csr_signed.public_bytes(serialization.Encoding.DER)
-
-
-# def create_csr_openssl(privkey_path: str, 
-#                        domains: List[str], 
-#                        extra: List[str] = [], 
-#                        **subjects: str) -> bytes:
-#     """
-#     generate csr using `openssl req`, 
-#     `domains` will be added to csr using `-addtext` option of openssl.
-#     """
-#     if subjects:
-#         names = '/' + '/'.join([f'{k}={v}' for k, v in subjects.items()])
-#     else:
-#         names = ''
-#     altnames = 'subjectAltName=' + ','.join([f'DNS:{d}' for d in domains])
-#     # TODO figure out how to add CN with multiple domains
-#     subj = f'/CN={",".join(domains)}' + names
-#     # private key that is different from the account private key should be used
-
-#     output_p = subprocess.run(
-#         [
-#             'openssl', 'req', '-new', 
-#             # '-key', privkey_path,
-#             '-key', privkey_path,
-#             '-outform', 'DER', 
-#             '-subj', subj,
-#             '-addext', altnames,
-#             *extra
-#         ],
-#         capture_output=True,
-#         check=True
-#     )
-#     output_b = output_p.stdout
-#     return output_b
 
 
 def parse_csr(privkey: Union[rsa.RSAPrivateKey, str], 
@@ -188,15 +150,7 @@ def parse_csr(privkey: Union[rsa.RSAPrivateKey, str],
 
     """
     return create_csr(privkey, domains, **subjects)
-    # if engine == 'cryptography' and isinstance(privkey, rsa.RSAPrivateKey):
-    #     return create_csr(privkey, domains, **subjects)
-    # elif engine == 'openssl' and isinstance(privkey, str):
-    #     return create_csr_openssl(privkey, domains, extra, **subjects)
-    # else:
-    #     raise ValueError(
-    #         f'unrecognized csr parser args '
-    #         f'engine={engine} and privkey={privkey}'
-    #     )
+
 
 def save_cert(cert_resp: requests.Response, cert_dir: str) -> requests.Response:
     """
@@ -234,14 +188,8 @@ def run_http_server(path: Union[Path, str], port = 80) -> None:
 
     with socketserver.TCPServer(
         ('', port), Handler, bind_and_activate=False) as httpd:
+
         # TODO proper exit for http server
-        # try:
-        #     # print(f'serving at port {port}')
-        #     info(f'serving at port {port}')
-        #     httpd.serve_forever()
-        # except Exception:
-        #     httpd.shutdown()
-        #     httpd.server_close()
 
         # prevent "OSError: [Errno 98] Address already in use" when testing
         httpd.allow_reuse_address = True
@@ -308,12 +256,6 @@ def domains_check(domains: List[str]) -> List[str]:
         # if top-level given by user but not in the first
         if primary in domains:
             # move primary to the first element in domains list
-
-            # domains_mod = [primary]
-            # for d in domains:
-            #     if d == primary:
-            #         continue
-            #     domains_mod.append(d)
             domains_mod = sorted(domains, key=len)
             return domains_mod
         else:
@@ -370,9 +312,6 @@ def main_param_parser(args: Namespace) -> dict:
     if args.debug:
         logging.getLogger('pyacme').setLevel(logging.DEBUG)
 
-    # if len(args.domain) >= 2:
-        # raise ValueError('domain count more than 2 is not supported yet')
-        # domains = domains_check(args.domain)
     domains = domains_check(args.domain)
 
     # use original given domains for path creation
@@ -381,7 +320,6 @@ def main_param_parser(args: Namespace) -> dict:
     param_dict = dict()
 
     # wildcard domain only available for dns mode
-    # param_dict['domains'] = args.domain
     param_dict['domains'] = domains
     for d in args.domain:
         if '*' in d:

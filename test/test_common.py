@@ -16,19 +16,8 @@ sys.path.append(str(Path(__file__).parents[1].absolute()))
 from pyacme.base import _JWKBase
 from pyacme.execution import main_entry_point_test
 from pyacme.util import get_keyAuthorization, get_dns_chall_txt_record
-# from pyacme.settings import *
 from test_settings import *
 
-
-# test constants
-# BASE = Path(__file__).parents[1].absolute()
-# RSA_PUB_1 = BASE / 'test' / 'test_pubkey.pem'
-# RSA_PRIV_1 = BASE / 'test' / 'test_privkey.pem'
-# RSA_PUB_2 = BASE / 'test' / 'test_pubkey_2.pem'
-# RSA_PRIV_2 = BASE / 'test' / 'test_privkey_2.pem'
-
-# CERT_DIR = BASE / 'test' / '.cert_files'
-# CERT_DIR.mkdir(parents=True, exist_ok=True)
 
 CERT_DIR = Path('.cert_files')
 
@@ -181,34 +170,6 @@ def add_host_entry(domains: List[str], addr: str) -> None:
     """
     add entry like `127.0.0.1 test.local` to /etc/hosts, if entry exists, skip
     """
-    # def _sudo_sed(domain: str) -> subprocess.CompletedProcess:
-    #     p = subprocess.run(
-    #         [
-    #             'sudo', 
-    #             'sed', '-i',
-    #             '$a\\' + f'{addr} {domain}',
-    #             '/etc/hosts'
-    #         ],
-    #         check=True
-    #     )
-    #     return p
-    
-    # # check the content of hosts
-    # checked_p = subprocess.run(
-    #     ['sudo', 'cat', '/etc/hosts'], 
-    #     # capture_output=True
-    #     stdout=subprocess.PIPE,
-    # )
-    # entries = checked_p.stdout.decode('utf-8').split('\n')
-    
-    # for domain in domains:
-    #     for entry in entries:
-    #         if domain in entry:
-    #             print(f'{domain} exists in /etc/hosts')
-    #             break
-    #     else:
-    #         _sudo_sed(domain)
-    #         print(f'{domain} added to /etc/hosts')
     if os.getuid() != 0:
         print(
             f'no root present, did not write to host; ' 
@@ -258,7 +219,6 @@ def create_py_http_server(bind: str, port: str, path: str) -> subprocess.Popen:
     # use a dynamic path, in case running test in root
     py_path = sys.executable
     param = [
-        # 'python', '-m', 'http.server', 
         '-m', 'http.server', 
         '--bind', bind,
         '--directory', path,

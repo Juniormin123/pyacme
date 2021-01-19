@@ -6,16 +6,9 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 
 from pyacme.base import _ACMERespObject, _AcctActionBase, _JWKBase
 from pyacme.util import save_cert
-# from pyacme.request import ACMERequestActions
-# from pyacme.actions import ACMEAccountActions
-# from pyacme.exceptions import ACMEError
 
 
 __all__ = ['ACMEAccount', 'ACMEOrder', 'ACMEAuthorization', 'ACMEChallenge']
-
-
-# TODO clearify the relation between ACMEAccout, ACMEOrder 
-# and ACMEAuthorizaition
 
 
 class Empty(_ACMERespObject):
@@ -102,11 +95,6 @@ class ACMEAccount(_ACMERespObject):
             jws_type=self.jwk_obj.related_JWS
         )
         order_obj = ACMEOrder(resp, related_acct=self)
-        # if self.order_objs:
-        #     self._order_objs: List['ACMEOrder']
-        #     self._order_objs.append(order_obj)
-        # else:
-        #     self._order_objs = [order_obj]
         self._order_objs.append(order_obj)
         return order_obj
     
@@ -169,7 +157,6 @@ class ACMEAccount(_ACMERespObject):
             jws_type=self.jwk_obj.related_JWS,
             **{'contact': contact, **kwargs}
         )
-        # self._update_from_resp(resp)
         self.poll_acct_state()
     
     def account_key_rollover(self, jwk_new: _JWKBase) -> None:
@@ -179,7 +166,6 @@ class ACMEAccount(_ACMERespObject):
             jwk_new=jwk_new,
             jws_type=self.jwk_obj.related_JWS
         )
-        # self._update_from_resp(resp)
         self._set_jwk(jwk_new)
         # new jwk must be used to send post-as-get
         self.poll_acct_state()
@@ -236,24 +222,12 @@ class ACMEAccount(_ACMERespObject):
         self._set_initial(resp)
         self._update_attr(resp)
     
-    # def set_order(self, order_obj: 'ACMEOrder') -> None:
-    #     self._order_obj = order_obj
-    
     def _set_jwk(self, jwk: _JWKBase) -> None:
         self._jwk_obj = jwk
     
-    # def set_auth(self, auth_list: List['ACMEAuthorization']) -> None:
-    #     self._auth_objs = auth_list
-    
     @property
     def order_objs(self) -> List['ACMEOrder']:
-        # if not hasattr(self, '_order_objs'):
-        #     return list()
         return self._order_objs
-
-    # @property
-    # def auth_objs(self) -> List['ACMEAuthorization']:
-    #     return self._auth_objs
 
     @property
     def jwk_obj(self) -> '_JWKBase':
@@ -297,7 +271,6 @@ class ACMEOrder(_ACMERespObject):
     
     def finalize_order(self, 
                        privkey: Union[RSAPrivateKey, str], 
-                    #    engine = 'openssl',
                        **subject_names) -> None:
         """
         finalize the `ACMEOrder` order by sending to its `"finalize"` url
@@ -309,7 +282,6 @@ class ACMEOrder(_ACMERespObject):
             privkey=privkey,
             domains=self.identifier_values,
             subject_names=subject_names,
-            # engine=engine,
             jws_type=jws_type
         )
         self._update_from_resp(resp)
@@ -327,7 +299,6 @@ class ACMEOrder(_ACMERespObject):
 
         see https://tools.ietf.org/html/rfc8555#section-7.4.2
         """
-        # cert_str = ''
         header = {'Accept': f'application/{cert_fmt}'}
         if cert_fmt == 'pem-certificate-chain':
             resp = self._related_acct.acct_actions.post_as_get(
@@ -336,7 +307,6 @@ class ACMEOrder(_ACMERespObject):
                 jws_type=self.related_acct.jwk_obj.related_JWS
             )
             resp = save_cert(resp, cert_dir)
-            # cert_str = resp.text
             return resp
         # TODO
         # elif cert_fmt == 'pkix-cert':
@@ -345,7 +315,6 @@ class ACMEOrder(_ACMERespObject):
         #     pass
         else:
             raise ValueError(f'unrecognized cert format: {cert_fmt}')
-        # return cert_str
 
 
     def _update_attr(self, resp: requests.Response, *args, **kwargs) -> None:
@@ -587,7 +556,6 @@ class ACMEChallenge(_ACMERespObject):
         self.token = ''
         self.validated = ''
         self.error = ''
-        # self.update_by_dict(chall_dict)
         self.__dict__.update(chall_dict)
         if 'related_auth' in kwargs:
             self._set_related_auth(kwargs['related_auth'])
@@ -611,13 +579,6 @@ class ACMEChallenge(_ACMERespObject):
             self._set_related_auth(kwargs['related_auth'])
 
         self.__dict__.update(self._raw_resp_body)
-    
-    # def update_by_dict(self, chall_dict: Dict[str, str]) -> None:
-    #     self.__dict__.update(chall_dict)
-
-    # def update_by_resp(self, resp: requests.Response) -> None:
-    #     self._set_initial(resp)
-    #     self._update_attr(resp)
     
     def _set_related_auth(self, auth_obj: ACMEAuthorization) -> None:
         self._related_auth = auth_obj

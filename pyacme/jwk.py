@@ -27,7 +27,6 @@ class _JWSRS(_JWSBase):
                  jwk: 'JWKRSA', 
                  kid: str = '', 
                  payload: Dict[str, Any] = dict()):
-        # self.jwk: JWKRSA
         if not isinstance(jwk, JWKRSA):
             raise TypeError(
                 f'jwk type "{type(jwk)}" not compatible with {self.alg}'
@@ -37,7 +36,6 @@ class _JWSRS(_JWSBase):
     def sign(self, hash_algo: Callable) -> None:
         self.jwk: JWKRSA
         sign_input = self.get_sign_input()
-        # sig = rsa.sign(sign_input, self.jwk.priv_key, self.hash_method)
         sig = self.jwk.priv_key.sign(
             data=sign_input,
             # PKCS padding for `RS256` signature

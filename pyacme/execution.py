@@ -70,7 +70,6 @@ def main_finalize(order: ACMEOrder,
             )
         order.finalize_order(
             privkey=csr_privkey,
-            # engine='cryptography',
             **subject_names
         )
         debug(str(order))
@@ -323,7 +322,8 @@ def main(*,
         )
         server_p.start()
 
-        # TODO this waiting is needed for pytest-cov, reason unknown
+        # TODO 
+        # waiting is needed when pytest-cov is enabled, reason unknown
         time.sleep(1)
 
         try:

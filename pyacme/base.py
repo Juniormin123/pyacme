@@ -19,12 +19,11 @@ class _JWKBase:
         self.__dict__.update(kwargs)
         self._update_container()
     
+    # TODO abstractmethod
     def _check_kty_param(self, kwargs: dict) -> None:
-        # TODO abstractmethod
         raise NotImplementedError
 
     def _update_container(self) -> None:
-        # TODO abstractmethod
         raise NotImplementedError
     
     @staticmethod
@@ -216,30 +215,20 @@ class _AcctActionBase:
         raise NotImplementedError
 
     def respond_to_challenge(self, 
-                            #  chall_type: str,
-                            #  acct_obj: ACMEAccount,
-                            #  auth_obj: ACMEAuthorization,
                              chall_obj: _ACMERespObject,
-                            #  jwk: _JWKBase,
-                            #  jws_type: TJWS) -> ACMEChallenge:
                              jws_type: TJWS) -> requests.Response:
         raise NotImplementedError
 
     def deactivate_auth(self, 
-                        # acct_obj: ACMEAccount, 
                         auth_obj: _ACMERespObject,
-                        # jws_type: TJWS) -> ACMEAuthorization:
                         jws_type: TJWS) -> requests.Response:
         raise NotImplementedError
 
     def finalize_order(self, 
-                    #    acct_obj: ACMEAccount, 
                        order_obj: _ACMERespObject,
                        privkey: Union[RSAPrivateKey, str],
                        domains: List[str],
                        subject_names: Dict[str, str],
-                    #    engine: str,
-                    #    jws_type: TJWS) -> List[ACMEOrder]:
                        jws_type: TJWS) -> requests.Response:
         raise NotImplementedError
 
