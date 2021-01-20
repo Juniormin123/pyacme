@@ -38,11 +38,14 @@ jobs:
     - name: pytest pebble
       run: |
         echo $(python -V)
-        pytest --cov=pyacme test/test_pebble.py
+        pytest --cov=pyacme --cov-report=xml test/test_pebble.py
     
     - name: pytest integration http mode
       run: |
-        sudo $(which python) -m pytest --cov=pyacme --cov-append test/test_integration.py -m httptest
+        sudo $(which python) -m pytest --cov=pyacme --cov-append --cov-report=xml test/test_integration.py -m httptest
+
+    - name: "Upload coverage to Codecov"
+      uses: codecov/codecov-action@v1
 
 
   integration:
