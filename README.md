@@ -1,4 +1,5 @@
 ![build](https://github.com/Juniormin123/pyacme/workflows/build/badge.svg)
+[![codecov](https://codecov.io/gh/Juniormin123/pyacme/branch/master/graph/badge.svg?token=MONG2K39ZJ)](https://codecov.io/gh/Juniormin123/pyacme)
 # pyacme
 A simple ACME client written in python
 
