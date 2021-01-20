@@ -7,7 +7,13 @@ from test_common import *
 
 
 @pytest.fixture(scope='class')
-def setup_pebble_docker(request):
+def root_host_entry(request):
+    marker = request.node.get_closest_marker('host_entry')
+    add_host_entry(*marker.args)
+
+
+@pytest.fixture(scope='class')
+def setup_pebble_docker(request, root_host_entry):
     # override start_pebble_docker form conftest.py
     marker = request.node.get_closest_marker('docker_type')
     if marker.args[0] == 'standalone':
@@ -142,7 +148,7 @@ http_mode_params = [
 @pytest.mark.httptest
 @pytest.mark.docker_type('standalone')
 @pytest.mark.host_entry(_DOMAIN+_MULTI_DOMAIN, '127.0.0.1')
-@pytest.mark.usefixtures('setup_pebble_docker', 'root_host_entry')
+@pytest.mark.usefixtures('setup_pebble_docker')
 class TestHttpMode:
     @pytest.mark.parametrize('params', http_mode_params)
     def test_http_mode(self, params):

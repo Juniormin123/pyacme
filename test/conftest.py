@@ -51,12 +51,6 @@ def setup_pebble_docker():
     stop_pebble_docker(PEBBLE_CONTAINER, PEBBLE_CHALLTEST_CONTAINER)
 
 
-@pytest.fixture(scope='class')
-def root_host_entry(request):
-    marker = request.node.get_closest_marker('host_entry')
-    add_host_entry(*marker.args)
-
-
 @pytest.fixture(scope='module')
 def new_request_action() -> ACMERequestActions:
     ACMERequestActions.set_directory_url(PEBBLE_TEST)
