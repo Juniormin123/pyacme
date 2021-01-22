@@ -7,11 +7,10 @@ from cryptography.hazmat.primitives.asymmetric import ec, ed25519, padding, rsa
 from cryptography.hazmat.primitives.asymmetric import utils
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
-from pyacme.base import _JWSBase
-from pyacme.base import _JWKBase
+from pyacme.base import _JWSBase, _JWKBase
 
 
-__all__ = ['JWKRSA']
+__all__ = ['JWKRSA', 'JWKES256']
 
 
 # combine jws module and jwk module to prevent circular import 
