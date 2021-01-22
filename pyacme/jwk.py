@@ -4,6 +4,7 @@ import base64
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519, padding, rsa
+from cryptography.hazmat.primitives.asymmetric import utils
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from pyacme.base import _JWSBase
@@ -117,17 +118,23 @@ class _JWSES(_JWSBase):
             )
         super().__init__(self.alg, url, nonce, payload, jwk, kid)
     
-    def sign(self, hash_algo: Callable) -> None:
+    def sign(self, hash_algo: Callable, r_size: int, s_size: int) -> None:
         self.jwk: _JWKESBase
         sign_input = self.get_sign_input()
 
+        # the sign() is asn.1 encoded, does not compatible with rfc7515/7518
         sig = self.jwk.priv_key.sign(
             data=sign_input,
             signature_algorithm=ec.ECDSA(hash_algo())
         )
+        # https://tools.ietf.org/html/rfc7515#appendix-A.3.1
+        # directly use r and s to construct the signature
+        r, s = utils.decode_dss_signature(sig)
+        r_byte, s_byte = r.to_bytes(r_size, 'big'), s.to_bytes(s_size, 'big')
+        r_s = r_byte + s_byte
 
         self.signature = str(
-            base64.urlsafe_b64encode(sig).strip(b'='), encoding='utf-8'
+            base64.urlsafe_b64encode(r_s).strip(b'='), encoding='utf-8'
         )
         self.post_body['signature'] = self.signature
 
@@ -178,7 +185,7 @@ class JWSES256(_JWSES):
         super().__init__(url, nonce, jwk, kid, payload, JWKES256)
     
     def sign(self) -> None:
-        return super().sign(hashes.SHA256)
+        return super().sign(hashes.SHA256, 32, 32)
 
 
 class JWKES256(_JWKESBase):
