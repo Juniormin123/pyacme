@@ -14,6 +14,9 @@ from pyacme.jws import JWSRS256
 from pyacme.jwk import JWKRSA
 
 
+# TODO cancel param jws_type
+
+
 __all__ = ['ACMEAccountActions', 'RS256Actions']
 
 
@@ -112,7 +115,7 @@ class ACMEAccountActions(_AcctActionBase):
 
         see https://tools.ietf.org/html/rfc8555#section-7.3.5
         """
-        inner_jws = jws_type(
+        inner_jws = jwk_new.related_JWS(
             url=self.req_action.acme_dir['keyChange'],
             # nonce ignored in inner jws
             nonce='',
