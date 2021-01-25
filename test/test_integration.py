@@ -144,6 +144,22 @@ http_mode_params = [
         ),
         id='http_mode_multi_domain_new_wd'
     ),
+    pytest.param(
+        dict(
+            domain=_DOMAIN, 
+            **_HTTP_MODE_COMMON_PARAM_PORTION,
+            csr_priv_key_type='es256'
+        ),
+        id='http_mode_single_domain_es256'
+    ),
+    pytest.param(
+        dict(
+            domain=_MULTI_DOMAIN, 
+            **_HTTP_MODE_COMMON_PARAM_PORTION,
+            csr_priv_key_type='es256'
+        ),
+        id='http_mode_multi_domain_es256'
+    ),
 ]
 
 
@@ -215,11 +231,12 @@ class TestDNSMode:
 @pytest.mark.usefixtures('setup_pebble_docker')
 class TestDNSModePebble:
 
-    def test_dns_mode_pebble(self, aliyun_access_key: Dict[str, str]):
+    @pytest.mark.parametrize('key_type', ['rsa', 'es256'])
+    def test_dns_mode_pebble(self, key_type, aliyun_access_key: Dict[str, str]):
         key_dict = dict(
             access_key=aliyun_access_key['access_key'],
             secret=aliyun_access_key['secret']
         )
         params = dict(**_DNS_MODE_PEBBLE_PARAM, **key_dict)
-        params.update(dict(domain=_STAGING_DOMAIN))
+        params.update(dict(domain=_STAGING_DOMAIN, csr_priv_key_type=key_type))
         _common(params, ca='pebble')
