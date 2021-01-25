@@ -5,7 +5,7 @@ import time
 import argparse
 import logging
 
-from pyacme.util import generate_rsa_privkey, get_keyAuthorization, \
+from pyacme.util import generate_privkey, get_keyAuthorization, \
                         main_param_parser, run_http_server, jwk_factory
 from pyacme.ACMEobj import ACMEAccount, ACMEAuthorization, ACMEOrder
 from pyacme.actions import ACMEAccountActions
@@ -58,16 +58,22 @@ def main_finalize(order: ACMEOrder,
                   csr_priv_key_size: int):
     order.poll_order_state()
     if order.status == 'ready':
-        if csr_priv_key_type.lower() == 'rsa':
-            csr_privkey = generate_rsa_privkey(
-                privkey_dir=cert_path,
-                keysize=csr_priv_key_size,
-                key_name=CSR_KEY_NAME
-            )
-        else:
-            raise ValueError(
-                f'not supported csr key type {csr_priv_key_type}'
-            )
+        # if csr_priv_key_type.lower() == 'rsa':
+        #     csr_privkey = generate_rsa_privkey(
+        #         privkey_dir=cert_path,
+        #         keysize=csr_priv_key_size,
+        #         key_name=CSR_KEY_NAME
+        #     )
+        # else:
+        #     raise ValueError(
+        #         f'not supported csr key type {csr_priv_key_type}'
+        #     )
+        csr_privkey = generate_privkey(
+            key_type=csr_priv_key_type,
+            privkey_dir=cert_path,
+            key_name=CSR_KEY_NAME,
+            key_size=csr_priv_key_size
+        )
         order.finalize_order(
             privkey=csr_privkey,
             **subject_names
@@ -218,8 +224,9 @@ def main_add_args(args: Sequence = []) -> argparse.Namespace:
     )
     parser.add_argument(
         '--csr_priv_key_type',
-        choices=['rsa'],
-        default='rsa',
+        # choices=['rsa'],
+        choices=CSR_SUPPORTED_KEY_TYPE,
+        default=CSR_DEFAULT_KEY_TYPE,
         help='select key type to sign CSR, default "rsa"'
     )
     parser.add_argument(
@@ -240,6 +247,13 @@ def main_add_args(args: Sequence = []) -> argparse.Namespace:
         action='store_true',
         help='disable ssl certificate verification when requesting acme '
              'resources, default False'
+    )
+    parser.add_argument(
+        '--acct_key_type',
+        choices=KEY_ACCT_KEYTYPE,
+        default=KEY_ACCT_KEYTYPE_DEFAULT,
+        help='decide acme server private key type, default '
+             f'{KEY_ACCT_KEYTYPE_DEFAULT}'
     )
     parser.add_argument(
         '--debug',
