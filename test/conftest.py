@@ -1,18 +1,18 @@
-import pytest
-
 from pathlib import Path
 import sys
 # sys.path.append(str(Path(__file__).parents[0].absolute()))
 sys.path.append(str(Path(__file__).parents[1].absolute()))
 
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import rsa, ec
 from cryptography.hazmat.backends import default_backend
+
+import pytest
 
 from pyacme.ACMEobj import ACMEAccount, ACMEOrder
 from pyacme.actions import ACMEAccountActions
 from pyacme.request import ACMERequestActions
 from pyacme.base import _JWKBase, _JWSBase
-from pyacme.jwk import JWKRSA 
+from pyacme.jwk import JWKRSA, JWKES256
 from pyacme.jws import JWSRS256
 from pyacme.exceptions import ACMEError
 from pyacme import settings
@@ -70,6 +70,11 @@ def _new_rsa_privkey() -> rsa.RSAPrivateKey:
     return csr_priv_key
 
 
+def _new_ec_privkey(curve) -> ec.EllipticCurvePrivateKey:
+    csr_priv_key = ec.generate_private_key(curve, default_backend())
+    return csr_priv_key
+
+
 @pytest.fixture(scope='function')
 def new_rsa_privkey() -> rsa.RSAPrivateKey:
     return _new_rsa_privkey()
@@ -89,18 +94,19 @@ def _new_jwk(request, new_rsa_privkey) -> _JWKBase:
             e=new_rsa_privkey.public_key().public_numbers().e
         )
         return jwk
-    # elif:
-    # more jwk type
+    elif jwk_type == 'es256':
+        jwk = JWKES256(priv_key=_new_ec_privkey(ec.SECP256R1()))
+        return jwk
     else:
         raise ValueError(f'jwk type {jwk_type} not supported')
 
 
-@pytest.fixture(scope='function', params=['rsa'])
+@pytest.fixture(scope='function', params=['rsa', 'es256'])
 def new_jwk(request, new_rsa_privkey: rsa.RSAPrivateKey) -> _JWKBase:
    return  _new_jwk(request, new_rsa_privkey)
 
 
-@pytest.fixture(scope='function', params=['rsa'])
+@pytest.fixture(scope='function', params=['rsa', 'es256'])
 def new_jwk_i(request, new_rsa_privkey_i: rsa.RSAPrivateKey) -> _JWKBase:
     # for new jwk which is independent of new account
     return _new_jwk(request, new_rsa_privkey_i)

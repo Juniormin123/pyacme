@@ -1,5 +1,5 @@
 import os
-from typing import List, Tuple, Union, Dict, Sequence
+from typing import List, Tuple, Union, Dict, Sequence, Callable
 from pathlib import Path
 import time
 import json
