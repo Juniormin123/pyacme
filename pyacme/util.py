@@ -7,7 +7,7 @@ import sys
 import time
 from argparse import Namespace
 from http.server import SimpleHTTPRequestHandler
-from typing import List, Union
+from typing import Any, Dict, List, Union
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -16,11 +16,11 @@ from cryptography.x509.oid import NameOID
 from cryptography.x509 import NameAttribute, DNSName, SubjectAlternativeName
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import rsa, ec
 import requests
 
 from pyacme.base import _JWKBase
-from pyacme.jwk import JWKRSA
+from pyacme.jwk import JWKRSA, JWKES256
 from pyacme.settings import *
 
 
@@ -99,7 +99,45 @@ def generate_rsa_privkey(privkey_dir: str,
     return csr_priv_key
 
 
-def create_csr(privkey: rsa.RSAPrivateKey,
+def generate_ecdsa_privkey(privkey_dir: str, 
+                           curve = ec.SECP256R1(),
+                           key_name = 'certkey.key'
+                           ) -> ec.EllipticCurvePrivateKey:
+    """
+    generate ecdsa key with SECP256R1 to specified dir
+    """
+    # create a private key if not given
+    csr_priv_key = ec.generate_private_key(
+        curve=curve,
+        backend=default_backend()
+    )
+    csr_priv_key_b = csr_priv_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+    with open(f'{privkey_dir}/{key_name}', 'wb') as f:
+        f.write(csr_priv_key_b)
+    return csr_priv_key
+
+
+def generate_privkey(key_type: str,
+                     privkey_dir: str, 
+                     key_name = 'certkey.key',
+                     key_size = 2048
+                     ) -> Union[ec.EllipticCurvePrivateKey, rsa.RSAPrivateKey]:
+    if key_type not in set(CSR_SUPPORTED_KEY_TYPE+KEY_ACCT_KEYTYPE):
+        raise ValueError(f'not supported privated key type {key_type}')
+    if key_type == 'rsa':
+        return generate_rsa_privkey(privkey_dir, key_size, key_name)
+    elif key_type == 'es256':
+        return generate_ecdsa_privkey(privkey_dir, ec.SECP256R1, key_name)
+    else:
+        raise NotImplementedError(f'key_type {key_type} not implemented')
+    # other keytype
+
+
+def create_csr(privkey: Union[rsa.RSAPrivateKey, ec.EllipticCurvePrivateKey],
                domains: List[str],
                *, 
                C = '', 
@@ -134,7 +172,7 @@ def create_csr(privkey: rsa.RSAPrivateKey,
     return csr_signed.public_bytes(serialization.Encoding.DER)
 
 
-def parse_csr(privkey: Union[rsa.RSAPrivateKey, str], 
+def parse_csr(privkey: Union[rsa.RSAPrivateKey, ec.EllipticCurvePrivateKey], 
               domains: List[str], 
             #   extra: List[str] = [], 
             #   engine: str = 'openssl',
@@ -199,9 +237,9 @@ def run_http_server(path: Union[Path, str], port = 80) -> None:
         httpd.serve_forever()
 
 
-def jwk_factory(acct_priv_key: str) -> _JWKBase:
+def jwk_factory(acct_priv_key_path: str) -> _JWKBase:
     """generate jwk object according private key file"""
-    with open(acct_priv_key, 'rb') as f:
+    with open(acct_priv_key_path, 'rb') as f:
         acct_priv = serialization.load_pem_private_key(
             data=f.read(),
             password=None,
@@ -213,9 +251,13 @@ def jwk_factory(acct_priv_key: str) -> _JWKBase:
                 n=acct_priv.public_key().public_numbers().n,
                 e=acct_priv.public_key().public_numbers().e
             )
-        # elif isinstance(acct_priv, ec.EllipticCurvePrivateKey):
-        #     # TODO 
-        #     pass
+        elif isinstance(acct_priv, ec.EllipticCurvePrivateKey):
+            if isinstance(acct_priv.curve, ec.SECP256R1):
+                jwk = JWKES256(acct_priv)
+            else:
+                raise NotImplementedError(
+                    f'ecdsa curve {acct_priv.curve} not implemented'
+                )
         else:
             raise TypeError(f'key type {type(acct_priv)} not supported')
         return jwk
@@ -302,6 +344,14 @@ def check_path(wd: str, domains: List[str]) -> str:
     return d
 
 
+def create_new_acct_key(key_path: Path, acct_key_type: str) -> None:
+    if not key_path.exists():
+        generate_privkey(acct_key_type, str(key_path), KEY_ACCT)
+        info(f'new {acct_key_type} account private key generated at {key_path}')
+    else:
+        info(f'use existed account private key at {key_path}')
+
+
 def main_param_parser(args: Namespace) -> dict:
     """
     parse params passed to `main()`, assign proper default value if needed;
@@ -317,7 +367,7 @@ def main_param_parser(args: Namespace) -> dict:
     # use original given domains for path creation
     joined_domain = check_path(args.working_directory, args.domain)
 
-    param_dict = dict()
+    param_dict: Dict[str, Any] = dict()
 
     # wildcard domain only available for dns mode
     param_dict['domains'] = domains
@@ -332,15 +382,7 @@ def main_param_parser(args: Namespace) -> dict:
     wd = Path(args.working_directory).expanduser().absolute() / joined_domain
     if not args.account_private_key:
         key_path = Path(wd) / WD_ACCT / KEY_ACCT
-        if not key_path.exists():
-            generate_rsa_privkey(
-                str(key_path.parent), 
-                keysize=KEY_SIZE, 
-                key_name=KEY_ACCT
-            )
-            info(f'new account private key generated at {key_path}')
-        else:
-            info(f'use existed account private key at {key_path}')
+        create_new_acct_key(key_path, args.acct_key_type)
         param_dict['acct_priv_key'] = str(key_path)
     else:
         param_dict['acct_priv_key'] = args.account_private_key
