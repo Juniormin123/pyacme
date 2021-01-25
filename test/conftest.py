@@ -34,6 +34,9 @@ def pytest_configure(config):
         'markers', 'dnstest'
     )
     config.addinivalue_line(
+        'markers', 'dnstest_pebble'
+    )
+    config.addinivalue_line(
         'markers', 'httptest'
     )
     config.addinivalue_line(

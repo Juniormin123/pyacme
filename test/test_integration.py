@@ -9,6 +9,8 @@ from test_common import *
 @pytest.fixture(scope='class')
 def root_host_entry(request):
     marker = request.node.get_closest_marker('host_entry')
+    if marker is None:
+        return
     add_host_entry(*marker.args)
 
 
@@ -169,6 +171,13 @@ _DNS_MODE_COMMON_PARAM_PORTION = dict(
     CA_entry=LETSENCRYPT_STAGING,
     mode='dns',
 )
+_DNS_MODE_PEBBLE_PARAM: dict = _DNS_MODE_COMMON_PARAM_PORTION.copy()
+_DNS_MODE_PEBBLE_PARAM.update(
+    dict(
+        CA_entry=PEBBLE_TEST,
+        no_ssl_verify=True,
+    )
+)
 
 dns_mode_params = [
     pytest.param(
@@ -199,3 +208,18 @@ class TestDNSMode:
         params = dict(**params, **key_dict)
         _common(params, ca='staging')
         time.sleep(5)
+
+
+@pytest.mark.dnstest_pebble
+@pytest.mark.docker_type('standalone')
+@pytest.mark.usefixtures('setup_pebble_docker')
+class TestDNSModePebble:
+
+    def test_dns_mode_pebble(self, aliyun_access_key: Dict[str, str]):
+        key_dict = dict(
+            access_key=aliyun_access_key['access_key'],
+            secret=aliyun_access_key['secret']
+        )
+        params = dict(**_DNS_MODE_PEBBLE_PARAM, **key_dict)
+        params.update(dict(domain=_STAGING_DOMAIN))
+        _common(params, ca='pebble')
