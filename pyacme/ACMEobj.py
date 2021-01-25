@@ -3,6 +3,7 @@ import requests
 import json
 
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
+from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
 
 from pyacme.base import _ACMERespObject, _AcctActionBase, _JWKBase
 from pyacme.util import save_cert
@@ -270,7 +271,7 @@ class ACMEOrder(_ACMERespObject):
         self._update_from_resp(resp)
     
     def finalize_order(self, 
-                       privkey: Union[RSAPrivateKey, str], 
+                       privkey: Union[RSAPrivateKey, EllipticCurvePrivateKey], 
                        **subject_names) -> None:
         """
         finalize the `ACMEOrder` order by sending to its `"finalize"` url

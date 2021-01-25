@@ -2,6 +2,7 @@ from typing import Dict, Any, Optional, Type, TypeVar, Union, List
 import base64
 import json
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
+from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
 
 import requests
 
@@ -226,7 +227,7 @@ class _AcctActionBase:
 
     def finalize_order(self, 
                        order_obj: _ACMERespObject,
-                       privkey: Union[RSAPrivateKey, str],
+                       privkey: Union[RSAPrivateKey, EllipticCurvePrivateKey],
                        domains: List[str],
                        subject_names: Dict[str, str],
                        jws_type: TJWS) -> requests.Response:
