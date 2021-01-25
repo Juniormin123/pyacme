@@ -6,6 +6,7 @@ Install the following package:
 
 import json
 import logging
+from typing import List
 
 from aliyunsdkcore.client import AcsClient
 from aliyunsdkalidns.request.v20150109.AddDomainRecordRequest \
@@ -87,7 +88,7 @@ def del_domain_record_by_id(client: AcsClient, record_id: str) -> dict:
 class Handler(_DNSProviderBase):
 
     def __init__(self, access_key: str, secret: str, *args, **kwargs) -> None:
-        self._aliyun_record_id = ''
+        self._aliyun_record_id: List[str] = []
         self.access_key = access_key
         self.secret =  secret
 
@@ -108,14 +109,15 @@ class Handler(_DNSProviderBase):
             rr='_acme-challenge',
             value=value
         )
-        self._aliyun_record_id = resp_dict['RecordId']
+        self._aliyun_record_id.append(resp_dict['RecordId'])
     
     def clear_dns_record(self, *args, **kwargs) -> None:
         if self._aliyun_record_id:
             client = create_client(self.access_key, self.secret)
-            del_domain_record_by_id(client, self._aliyun_record_id)
-            info(f'aliyun dns record {self._aliyun_record_id} cleared')
+            for id in self._aliyun_record_id:
+                del_domain_record_by_id(client, id)
+                info(f'aliyun dns record {id} cleared')
             # reset aliyun record id to prevent multiple clear
-            self._aliyun_record_id = ''
+            self._aliyun_record_id.clear()
         else:
             info('no aliyun dns record cleared')
