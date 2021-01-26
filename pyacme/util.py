@@ -345,7 +345,9 @@ def check_path(wd: str, domains: List[str]) -> str:
 
 
 def create_new_acct_key(key_path: Path, acct_key_type: str) -> None:
+    # passed in key_path is a file location
     if not key_path.exists():
+        key_path = key_path.parent
         generate_privkey(acct_key_type, str(key_path), KEY_ACCT)
         info(f'new {acct_key_type} account private key generated at {key_path}')
     else:
