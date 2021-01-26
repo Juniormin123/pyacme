@@ -92,8 +92,8 @@ seconds between each authorization poll, default 5.0
 `--poll_retry_count int`    
 total count of authorization poll retry, default 24
 
-`--csr_priv_key_type {rsa}`    
-select key type to sign CSR, default "rsa"
+`--csr_priv_key_type {rsa, es256}`    
+select key type to sign CSR, default "rsa", which is rsa 2048; ECDSA with SECP256R1 is supported
 
 `--csr_priv_key_size int`    
 Optional, key size of key that will sign CSR, default 2048
