@@ -44,8 +44,15 @@ def aliyun_access_key() -> Dict[str, str]:
 
 
 def get_aliyun_access_key(key_file: str) -> Dict[str, str]:
-    with open(key_file, 'r') as f:
-        return json.load(f)
+    try:
+        with open(key_file, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        # for ci test
+        return {
+            'access_key': os.environ['ALIYUN_AK'],
+            'secret': os.environ['ALIYUN_S'],
+        }
 
 
 def run_test_main(**main_param) -> None:

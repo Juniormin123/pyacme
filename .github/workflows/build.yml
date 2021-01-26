@@ -11,10 +11,15 @@ on:
 jobs:
   unittest:
     runs-on: ubuntu-latest
+
     strategy:
       matrix:
         python-version:
           - 3.8
+    
+    env:
+      ALIYUN_AK: ${{ secrets.ALIYUN_ACCESS_KEY }}
+      ALIYUN_S: ${{ secrets.ALIYUN_SECRET }}
 
     steps:
     - uses: actions/checkout@v2
