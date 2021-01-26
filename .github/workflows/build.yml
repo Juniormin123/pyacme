@@ -46,7 +46,7 @@ jobs:
     
     - name: pytest integration dns mode using pebble
       run: |
-        pytest --cov-pyacme --cov-append --cov-report=xml test/test_integration.py -m dnstest_pebble -k es256
+        pytest --cov=pyacme --cov-append --cov-report=xml test/test_integration.py -m dnstest_pebble -k es256
 
     - name: "Upload coverage to Codecov"
       uses: codecov/codecov-action@v1
