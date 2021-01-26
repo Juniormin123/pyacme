@@ -17,9 +17,9 @@ jobs:
         python-version:
           - 3.8
     
-    env:
-      ALIYUN_AK: ${{ secrets.ALIYUN_ACCESS_KEY }}
-      ALIYUN_S: ${{ secrets.ALIYUN_SECRET }}
+    # env:
+    #   ALIYUN_AK: ${{ secrets.ALIYUN_ACCESS_KEY }}
+    #   ALIYUN_S: ${{ secrets.ALIYUN_SECRET }}
 
     steps:
     - uses: actions/checkout@v2
@@ -49,9 +49,9 @@ jobs:
       run: |
         sudo $(which python) -m pytest --cov=pyacme --cov-append --cov-report=xml test/test_integration.py -m httptest
     
-    - name: pytest integration dns mode using pebble
-      run: |
-        pytest --cov=pyacme --cov-append --cov-report=xml test/test_integration.py -m dnstest_pebble -k es256
+    # - name: pytest integration dns mode using pebble
+    #   run: |
+    #     pytest --cov=pyacme --cov-append --cov-report=xml test/test_integration.py -m dnstest_pebble -k es256
 
     - name: "Upload coverage to Codecov"
       uses: codecov/codecov-action@v1
